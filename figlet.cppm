@@ -9,7 +9,6 @@ module;
 #include <unordered_map>
 #include <string_view>
 #include <sstream>
-#include <algorithm>
 
 export module figlet;
 
@@ -157,16 +156,24 @@ public:
      * @param y Top-left Y row coordinate.
      * @param x Top-left X column coordinate.
      * @param text String view containing UTF-8 input text.
+     * @param cstart Starting color for the gradient.
+     * @param cend Ending color for the gradient.
      */
-    void render(ncpp::Plane* plane, int y, int x, std::string_view text) const {
+    void render(ncpp::Plane* plane, int y, int x, std::string_view text, uint32_t cstart=0, uint32_t cend=0) const {
         if (height <= 0) return;
 
         auto lines = renderToStrings(text);
+        std::vector<uint32_t> colors;
 
-        int line_no = 0;
-        for (auto line: lines) {
+        if (cstart && cend)
+            colors = tweenRGB(cstart, cend, lines.size());
+
+        for (int i = 0; i < lines.size(); ++i) {
+            if (cstart && cend)
+                plane->set_fg_rgb(colors[i]);
+
             // Write strings directly onto the target plane coordinates
-            plane->putstr(y + line_no++, x, line.c_str());
+            plane->putstr(y + i, x, lines[i].c_str());
         }
     }
 
@@ -174,14 +181,24 @@ public:
      * @brief Renders text onto an ncpp::Plane using a horizontal full-width alignment.
      * @param plane The target Notcurses C++ plane.
      * @param text String view containing UTF-8 input text.
+     * @param cstart Starting color for the gradient.
+     * @param cend Ending color for the gradient.
      */
-    void render(ncpp::Plane* plane, std::string_view text) const {
+    void render(ncpp::Plane* plane, std::string_view text, uint32_t cstart=0, uint32_t cend=0) const {
         if (height <= 0) return;
 
         auto lines = renderToStrings(text, true);
-        for (auto const line: lines) {
-            // Write strings directly onto the target plane coordinates
-            plane->putstr(line.c_str());
+        std::vector<uint32_t> colors;
+
+        if (cstart && cend)
+            colors = tweenRGB(cstart, cend, lines.size());
+
+        for (int i = 0; i < lines.size(); ++i) {
+            if (cstart && cend)
+                plane->set_fg_rgb(colors[i]);
+
+            // Write strings directly onto the target plane
+            plane->putstr(lines[i].c_str());
         }
     }
 
@@ -269,5 +286,41 @@ private:
         }
 
         return ret;
+    }
+
+    std::vector<uint32_t> tweenRGB(uint32_t start, uint32_t end, uint32_t steps) const
+    {
+        std::vector<uint32_t> result;
+        if (steps == 0) return result;
+        if (steps == 1) {
+            result.push_back(start);
+            return result;
+        }
+
+        // Extract the RGB components of start and end
+        uint8_t r1 = (start >> 16) & 0xFF;
+        uint8_t g1 = (start >> 8) & 0xFF;
+        uint8_t b1 = start & 0xFF;
+
+        uint8_t r2 = (end >> 16) & 0xFF;
+        uint8_t g2 = (end >> 8) & 0xFF;
+        uint8_t b2 = end & 0xFF;
+
+        result.reserve(steps);
+        for (uint32_t i = 0; i < steps; ++i) {
+            // Calculate the interpolation factor (0.0 to 1.0)
+            float t = static_cast<float>(i) / (steps - 1);
+
+            // Interpolate each channel
+            uint8_t r = static_cast<uint8_t>(r1 + (r2 - r1) * t);
+            uint8_t g = static_cast<uint8_t>(g1 + (g2 - g1) * t);
+            uint8_t b = static_cast<uint8_t>(b1 + (b2 - b1) * t);
+
+            // Combine the channels into a uint32_t value
+            uint32_t color = (r << 16) | (g << 8) | b;
+            result.push_back(color);
+        }
+
+        return result;
     }
 };
