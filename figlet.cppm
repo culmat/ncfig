@@ -1,32 +1,46 @@
 module;
 
 #include <ncpp/Plane.hh>
-#include <iostream>
+#include <cmath>
 #include <fstream>
-#include <string>
-#include <vector>
-#include <unordered_map>
-#include <string_view>
+#include <iostream>
 #include <sstream>
+#include <string>
+#include <string_view>
+#include <unordered_map>
+#include <vector>
 
 export module figlet;
 
 export class Tweening
 {
-private:
-    constexpr static std::uint32_t oob = 0xFFFFFFFF;
 public:
-    struct Gradient {
-        std::uint32_t start;
-        std::uint32_t end;
-        std::size_t steps;
-
-        bool isDefined() const {
-            return start != oob && end != oob;
-        }
+    enum class GradientType {
+        Unconfigured,
+        Linear,
+        Radial,
     };
 
-    static constexpr Gradient undef{ oob, oob, 0 };
+    enum class Orientation {
+        Unconfigured,
+        Horizontal,
+        Vertical,
+    };
+
+    struct Gradient {
+        GradientType type;
+        Orientation orientation;
+
+        std::uint32_t start;
+        std::uint32_t end;
+
+        // linear interpolation steps
+        std::size_t steps;
+
+        // radial interpolation steps
+        std::size_t width;
+        std::size_t height;
+    };
 
     static std::vector<uint32_t> RGB(Gradient gradient)
     {
@@ -98,6 +112,55 @@ public:
 
                 // Store the result in the matrix
                 matrix[y][x] = (r << 16) | (g << 8) | b;
+            }
+        }
+
+        return matrix;
+    }
+
+    static std::vector<std::vector<uint32_t>> radial(Gradient gradient)
+    {
+        // Calculate center
+        float centerX = (gradient.width - 1) / 2.0f;
+        float centerY = (gradient.height - 1) / 2.0f;
+
+        // Calculate max distance
+        float maxDist = std::sqrt(
+            std::pow(std::max(centerX, gradient.width - 1 - centerX), 2) +
+            std::pow(std::max(centerY, gradient.height - 1 - centerY), 2)
+        );
+
+        // Extract RGB values of start and end colors
+        uint8_t r1 = (gradient.start >> 16) & 0xFF;
+        uint8_t g1 = (gradient.start >> 8) & 0xFF;
+        uint8_t b1 = gradient.start & 0xFF;
+
+        uint8_t r2 = (gradient.end >> 16) & 0xFF;
+        uint8_t g2 = (gradient.end >> 8) & 0xFF;
+        uint8_t b2 = gradient.end & 0xFF;
+
+        // Create matrix
+        std::vector<std::vector<uint32_t>> matrix(
+            gradient.height,
+            std::vector<uint32_t>(gradient.width)
+        );
+
+        for (uint32_t i = 0; i < gradient.height; ++i) {
+            for (uint32_t j = 0; j < gradient.width; ++j) {
+                // Calculate distance to center
+                float dx = j - centerX;
+                float dy = i - centerY;
+                float dist = std::sqrt(dx * dx + dy * dy);
+
+                // Normalize distance to [0, 1]
+                float t = std::min(dist / maxDist, 1.0f);
+
+                // Interpolate color
+                uint8_t r = static_cast<uint8_t>(r1 + (r2 - r1) * t);
+                uint8_t g = static_cast<uint8_t>(g1 + (g2 - g1) * t);
+                uint8_t b = static_cast<uint8_t>(b1 + (b2 - b1) * t);
+
+                matrix[i][j] = (r << 16) | (g << 8) | b;
             }
         }
 
@@ -250,43 +313,43 @@ public:
      * @param y Top-left Y row coordinate.
      * @param x Top-left X column coordinate.
      * @param text String view containing UTF-8 input text.
-     * @param vgradient Vertical gradient for the text.
-     * @param hgradient Horizontal gradient for the text.
+     * @param first First gradient for the text.
+     * @param second Second gradient for the text.
      */
     void render(
         ncpp::Plane* plane,
         int y,
         int x,
         std::string_view text,
-        Tweening::Gradient vgradient = Tweening::undef,
-        Tweening::Gradient hgradient = Tweening::undef
+        Tweening::Gradient first = {},
+        Tweening::Gradient second = {}
     ) const
     {
         if (height <= 0) return;
 
         auto lines = renderToStrings(text);
         auto [
-            vtween,
-            htween,
-            hvcolors,
+            one_d,
+            two_d,
             max_width
-        ] = prepareGradients(lines, vgradient, hgradient);
+        ] = prepareGradients(lines, first, second);
 
         for (int i = 0; i < lines.size(); ++i) {
-            if (vgradient.isDefined() && hgradient.isDefined()) {
+            if (!two_d.empty()) {
+                // 2d tweening
                 // print by character
                 for (int j = 0; j < lines[i].size(); ++j) {
-                    plane->set_fg_rgb(hvcolors[i][j]);
+                    plane->set_fg_rgb(two_d[i][j]);
                     plane->putc(y + i, x + j, lines[i][j]);
                 }
-            } else if (vgradient.isDefined()) {
-                plane->set_fg_rgb(vtween[i]);
+            } else if (!one_d.empty() && first.orientation == Tweening::Orientation::Vertical) {
+                plane->set_fg_rgb(one_d[i]);
                 // Write strings directly onto the target plane coordinates
                 plane->putstr(y + i, x, lines[i].c_str());
-            } else if (hgradient.isDefined()) {
+            } else if (!one_d.empty() && first.orientation == Tweening::Orientation::Horizontal) {
                 // print by character
                 for (int j = 0; j < lines[i].size(); ++j) {
-                    plane->set_fg_rgb(htween[j]);
+                    plane->set_fg_rgb(one_d[j]);
                     plane->putc(y + i, x + j, lines[i][j]);
                 }
             } else {
@@ -299,40 +362,40 @@ public:
      * @brief Renders text onto an ncpp::Plane using a horizontal full-width alignment.
      * @param plane The target Notcurses C++ plane.
      * @param text String view containing UTF-8 input text.
-     * @param vgradient Vertical gradient for the text.
-     * @param hgradient Horizontal gradient for the text.
+     * @param first First gradient for the text.
+     * @param second Second gradient for the text.
      */
     void render(
         ncpp::Plane* plane,
         std::string_view text,
-        Tweening::Gradient vgradient = Tweening::undef,
-        Tweening::Gradient hgradient = Tweening::undef
+        Tweening::Gradient first = {},
+        Tweening::Gradient second = {}
     ) const
     {
         if (height <= 0) return;
 
         auto lines = renderToStrings(text, true);
         auto [
-            vtween,
-            htween,
-            hvcolors,
+            one_d,
+            two_d,
             max_width
-        ] = prepareGradients(lines, vgradient, hgradient);
+        ] = prepareGradients(lines, first, second);
 
         for (int i = 0; i < lines.size(); ++i) {
-            if (vgradient.isDefined() && hgradient.isDefined()) {
+            if (!two_d.empty()) {
+                // 2d tweening
                 // print by character
                 for (int j = 0; j < lines[i].size(); ++j) {
-                    plane->set_fg_rgb(hvcolors[i][j]);
+                    plane->set_fg_rgb(two_d[i][j]);
                     plane->putc(lines[i][j]);
                 }
-            } else if (vgradient.isDefined()) {
-                plane->set_fg_rgb(vtween[i]);
+            } else if (!one_d.empty() && first.orientation == Tweening::Orientation::Vertical) {
+                plane->set_fg_rgb(one_d[i]);
                 plane->putstr(lines[i].c_str());
-            } else if (hgradient.isDefined()) {
+            } else if (!one_d.empty() && first.orientation == Tweening::Orientation::Horizontal) {
                 // print by character
                 for (int j = 0; j < lines[i].size(); ++j) {
-                    plane->set_fg_rgb(htween[j]);
+                    plane->set_fg_rgb(one_d[j]);
                     plane->putc(lines[i][j]);
                 }
             } else {
@@ -430,43 +493,58 @@ private:
     /**
      * @brief Prepares the gradients and colors for rendering.
      * @param lines The lines of text.
-     * @param vgradient Vertical gradient.
-     * @param hgradient Horizontal gradient.
-     * @return A tuple with (vtween, htween, hvcolors, max_width).
+     * @param first First gradient.
+     * @param second Second gradient.
+     * @return A tuple with (one_d, two_d, max_width).
      */
     std::tuple<
-        std::vector<uint32_t>,
         std::vector<uint32_t>,
         std::vector<std::vector<uint32_t>>,
         std::size_t
     > prepareGradients(
         const std::vector<std::string>& lines,
-        Tweening::Gradient vgradient,
-        Tweening::Gradient hgradient
+        Tweening::Gradient first,
+        Tweening::Gradient second
     ) const {
-        std::vector<uint32_t> vtween;
-        std::vector<uint32_t> htween;
-        std::vector<std::vector<uint32_t>> hvcolors;
+        std::vector<uint32_t> one_d;
+        std::vector<std::vector<uint32_t>> two_d;
         std::size_t max_width = 0;
 
-        if (hgradient.isDefined()) {
-            for (const auto& line : lines) {
-                max_width = std::max(max_width, line.size());
-            }
+        for (const auto& line : lines) {
+            max_width = std::max(max_width, line.size());
         }
 
-        if (vgradient.isDefined() && hgradient.isDefined()) {
-            vgradient.steps = lines.size();
-            hgradient.steps = max_width;
-            hvcolors = Tweening::Parallel(vgradient, hgradient);
-        } else if (vgradient.isDefined()) {
-            vgradient.steps = lines.size();
-            vtween = Tweening::RGB(vgradient);
-        } else if (hgradient.isDefined()) {
-            hgradient.steps = max_width;
-            htween = Tweening::RGB(hgradient);
+        if (first.type == Tweening::GradientType::Linear
+            && second.type == Tweening::GradientType::Linear)
+        {
+            // this combination is only supported for parallel linear
+            // gradients, so we can ignore orientation
+            first.steps = lines.size();
+            second.steps = max_width;
+            two_d = Tweening::Parallel(first, second);
+        }
+        else if (first.type == Tweening::GradientType::Radial)
+        {
+            // Radial gradient
+            first.width = max_width;
+            first.height = lines.size();
+            two_d = Tweening::radial(first);
+        }
+        else if (first.type == Tweening::GradientType::Linear
+            && first.orientation == Tweening::Orientation::Vertical)
+        {
+            // One-dimensional gradient (vertical)
+            first.steps = lines.size();
+            one_d = Tweening::RGB(first);
+        }
+        else if (first.type == Tweening::GradientType::Linear
+            && first.orientation == Tweening::Orientation::Horizontal)
+        {
+            // One-dimensional gradient (horizontal)
+            first.steps = max_width;
+            one_d = Tweening::RGB(first);
         }
 
-        return {vtween, htween, hvcolors, max_width};
+        return {one_d, two_d, max_width};
     }
 };

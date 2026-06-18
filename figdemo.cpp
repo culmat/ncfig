@@ -41,49 +41,78 @@ class InputParser{
         std::vector<std::string> tokens;
 };
 
-auto help = "Usage: figdemo -f <font> [-v <gradient>] [-h <gradient>] [text]\n"
+auto help = "Usage: figdemo -f <font> [-v <gradient>] [-r <gradient>] [-h <gradient>] [text]\n"
+    "\n"
     "  -f <font>      : Specify the font file to use\n"
     "  -v <gradient>  : Specify the vertical color gradient\n"
     "  -h <gradient>  : Specify the horizontal color gradient\n"
+    "  -r <gradient>  : Specify the radial color gradient\n"
     "  text           : The text to render\n"
     "\n"
     "Gradients are specified as pairs of hexadecimal colors, e.g. \n"
-    "0xff0000:0x00ff00 for a red-to-green gradient.\n"sv;
-
-void print_help() {
-    std::cout << help;
-}
+    "0xff0000:0x00ff00 for a red-to-green gradient.\n"
+    "\n"
+    "Linear and vertical gradients can be combined (the two colors\n"
+    "will be added together); radial gradients are exclusive.\n"sv;
 
 int main(int argc, char **argv) {
     InputParser opts(argc, argv);
 
     if (opts.cmdOptionExists("-?") || opts.cmdOptionExists("--help")) {
-        print_help();
+        std::cout << help;
+
         return EXIT_SUCCESS;
     }
 
     std::string filename = opts.getCmdOption("-f");
     std::string vgradient = opts.getCmdOption("-v");
     std::string hgradient = opts.getCmdOption("-h");
-    std::string text = argc % 2 == 0 ? argv[argc - 1] : "HELLO NOTCURSES!";
+    std::string rgradient = opts.getCmdOption("-r");
 
-    if (filename.empty()) {
-        print_help();
+    // Sanity check
+    if (!rgradient.empty() && (!vgradient.empty() || !hgradient.empty())) {
+        std::cerr << "Error: radial and vertical gradients cannot be combined.\n";
+        std::cout << help;
+
         return EXIT_FAILURE;
     }
 
-    Tweening::Gradient vgrad = Tweening::undef;
-    Tweening::Gradient hgrad = Tweening::undef;
+    std::string text = argc % 2 == 0 ? argv[argc - 1] : "HELLO NOTCURSES!";
+
+    if (filename.empty()) {
+        std::cout << help;
+
+        return EXIT_FAILURE;
+    }
+
+    Tweening::Gradient first{};
+    Tweening::Gradient second{};
 
     std::size_t pos;
     if (!vgradient.empty() && (pos = vgradient.find(":")) != std::string::npos) {
-        vgrad.start = std::stoul(vgradient.substr(0, pos), nullptr, 16);
-        vgrad.end = std::stoul(vgradient.substr(pos + 1), nullptr, 16);
+        first.start = std::stoul(vgradient.substr(0, pos), nullptr, 16);
+        first.end = std::stoul(vgradient.substr(pos + 1), nullptr, 16);
+
+        first.type = Tweening::GradientType::Linear;
+        first.orientation = Tweening::Orientation::Vertical;
     }
 
     if (!hgradient.empty() && (pos = hgradient.find(":")) != std::string::npos) {
-        hgrad.start = std::stoul(hgradient.substr(0, pos), nullptr, 16);
-        hgrad.end = std::stoul(hgradient.substr(pos + 1), nullptr, 16);
+        // when both v and h gradients are specified, use second for vertical
+        Tweening::Gradient &dest = vgradient.empty() ? first : second;
+
+        dest.start = std::stoul(hgradient.substr(0, pos), nullptr, 16);
+        dest.end = std::stoul(hgradient.substr(pos + 1), nullptr, 16);
+
+        dest.type = Tweening::GradientType::Linear;
+        dest.orientation = Tweening::Orientation::Horizontal;
+    }
+
+    if (!rgradient.empty() && (pos = rgradient.find(":")) != std::string::npos) {
+        first.start = std::stoul(rgradient.substr(0, pos), nullptr, 16);
+        first.end = std::stoul(rgradient.substr(pos + 1), nullptr, 16);
+
+        first.type = Tweening::GradientType::Radial;
     }
 
     notcurses_options options{
@@ -101,7 +130,7 @@ int main(int argc, char **argv) {
 
     // Render using the current cursor position
     std_plane->putstr("\n");
-    font.render(std_plane, text, vgrad, hgrad);
+    font.render(std_plane, text, first, second);
     nc.render();
 
     return EXIT_SUCCESS;
