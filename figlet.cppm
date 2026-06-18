@@ -12,6 +12,45 @@ module;
 
 export module figlet;
 
+export class Tweening {
+public:
+    static std::vector<uint32_t> RGB(uint32_t start, uint32_t end, uint32_t steps)
+    {
+        std::vector<uint32_t> result;
+        if (steps == 0) return result;
+        if (steps == 1) {
+            result.push_back(start);
+            return result;
+        }
+
+        // Extract the RGB components of start and end
+        uint8_t r1 = (start >> 16) & 0xFF;
+        uint8_t g1 = (start >> 8) & 0xFF;
+        uint8_t b1 = start & 0xFF;
+
+        uint8_t r2 = (end >> 16) & 0xFF;
+        uint8_t g2 = (end >> 8) & 0xFF;
+        uint8_t b2 = end & 0xFF;
+
+        result.reserve(steps);
+        for (uint32_t i = 0; i < steps; ++i) {
+            // Calculate the interpolation factor (0.0 to 1.0)
+            float t = static_cast<float>(i) / (steps - 1);
+
+            // Interpolate each channel
+            uint8_t r = static_cast<uint8_t>(r1 + (r2 - r1) * t);
+            uint8_t g = static_cast<uint8_t>(g1 + (g2 - g1) * t);
+            uint8_t b = static_cast<uint8_t>(b1 + (b2 - b1) * t);
+
+            // Combine the channels into a uint32_t value
+            uint32_t color = (r << 16) | (g << 8) | b;
+            result.push_back(color);
+        }
+
+        return result;
+    }
+};
+
 export class FigletFont {
 public:
     FigletFont() = default;
@@ -166,7 +205,7 @@ public:
         std::vector<uint32_t> colors;
 
         if (cstart && cend)
-            colors = tweenRGB(cstart, cend, lines.size());
+            colors = Tweening::RGB(cstart, cend, lines.size());
 
         for (int i = 0; i < lines.size(); ++i) {
             if (cstart && cend)
@@ -191,7 +230,7 @@ public:
         std::vector<uint32_t> colors;
 
         if (cstart && cend)
-            colors = tweenRGB(cstart, cend, lines.size());
+            colors = Tweening::RGB(cstart, cend, lines.size());
 
         for (int i = 0; i < lines.size(); ++i) {
             if (cstart && cend)
@@ -286,41 +325,5 @@ private:
         }
 
         return ret;
-    }
-
-    std::vector<uint32_t> tweenRGB(uint32_t start, uint32_t end, uint32_t steps) const
-    {
-        std::vector<uint32_t> result;
-        if (steps == 0) return result;
-        if (steps == 1) {
-            result.push_back(start);
-            return result;
-        }
-
-        // Extract the RGB components of start and end
-        uint8_t r1 = (start >> 16) & 0xFF;
-        uint8_t g1 = (start >> 8) & 0xFF;
-        uint8_t b1 = start & 0xFF;
-
-        uint8_t r2 = (end >> 16) & 0xFF;
-        uint8_t g2 = (end >> 8) & 0xFF;
-        uint8_t b2 = end & 0xFF;
-
-        result.reserve(steps);
-        for (uint32_t i = 0; i < steps; ++i) {
-            // Calculate the interpolation factor (0.0 to 1.0)
-            float t = static_cast<float>(i) / (steps - 1);
-
-            // Interpolate each channel
-            uint8_t r = static_cast<uint8_t>(r1 + (r2 - r1) * t);
-            uint8_t g = static_cast<uint8_t>(g1 + (g2 - g1) * t);
-            uint8_t b = static_cast<uint8_t>(b1 + (b2 - b1) * t);
-
-            // Combine the channels into a uint32_t value
-            uint32_t color = (r << 16) | (g << 8) | b;
-            result.push_back(color);
-        }
-
-        return result;
     }
 };
