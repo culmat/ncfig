@@ -14,28 +14,34 @@ export module figlet;
 
 export class Tweening {
 public:
-    static std::vector<uint32_t> RGB(uint32_t start, uint32_t end, uint32_t steps)
+    struct Gradient {
+        std::uint32_t start;
+        std::uint32_t end;
+        std::size_t steps;
+    };
+
+    static std::vector<uint32_t> RGB(Gradient gradient)
     {
         std::vector<uint32_t> result;
-        if (steps == 0) return result;
-        if (steps == 1) {
-            result.push_back(start);
+        if (gradient.steps == 0) return result;
+        if (gradient.steps == 1) {
+            result.push_back(gradient.start);
             return result;
         }
 
         // Extract the RGB components of start and end
-        uint8_t r1 = (start >> 16) & 0xFF;
-        uint8_t g1 = (start >> 8) & 0xFF;
-        uint8_t b1 = start & 0xFF;
+        uint8_t r1 = (gradient.start >> 16) & 0xFF;
+        uint8_t g1 = (gradient.start >> 8) & 0xFF;
+        uint8_t b1 = gradient.start & 0xFF;
 
-        uint8_t r2 = (end >> 16) & 0xFF;
-        uint8_t g2 = (end >> 8) & 0xFF;
-        uint8_t b2 = end & 0xFF;
+        uint8_t r2 = (gradient.end >> 16) & 0xFF;
+        uint8_t g2 = (gradient.end >> 8) & 0xFF;
+        uint8_t b2 = gradient.end & 0xFF;
 
-        result.reserve(steps);
-        for (uint32_t i = 0; i < steps; ++i) {
+        result.reserve(gradient.steps);
+        for (uint32_t i = 0; i < gradient.steps; ++i) {
             // Calculate the interpolation factor (0.0 to 1.0)
-            float t = static_cast<float>(i) / (steps - 1);
+            float t = static_cast<float>(i) / (gradient.steps - 1);
 
             // Interpolate each channel
             uint8_t r = static_cast<uint8_t>(r1 + (r2 - r1) * t);
@@ -205,7 +211,7 @@ public:
         std::vector<uint32_t> colors;
 
         if (cstart && cend)
-            colors = Tweening::RGB(cstart, cend, lines.size());
+            colors = Tweening::RGB(Tweening::Gradient{cstart, cend, lines.size()});
 
         for (int i = 0; i < lines.size(); ++i) {
             if (cstart && cend)
@@ -230,7 +236,7 @@ public:
         std::vector<uint32_t> colors;
 
         if (cstart && cend)
-            colors = Tweening::RGB(cstart, cend, lines.size());
+            colors = Tweening::RGB(Tweening::Gradient{cstart, cend, lines.size()});
 
         for (int i = 0; i < lines.size(); ++i) {
             if (cstart && cend)
