@@ -41,7 +41,7 @@ class InputParser{
         std::vector<std::string> tokens;
 };
 
-auto help = "Usage: figdemo -f <font> [-v <gradient>] [-r <gradient>] [-h <gradient>] [text]\n"
+auto help = "Usage: ncfig -f <font> [-v <gradient>] [-r <gradient>] [-h <gradient>] [text]\n"
     "\n"
     "  -f <font>      : Specify the font file to use\n"
     "  -v <gradient>  : Specify the vertical color gradient\n"
