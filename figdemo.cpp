@@ -41,10 +41,14 @@ class InputParser{
         std::vector<std::string> tokens;
 };
 
-auto help = "Usage: figdemo -f <font> [-g <gradient>] [text]\n"
+auto help = "Usage: figdemo -f <font> [-v <gradient>] [-h <gradient>] [text]\n"
     "  -f <font>      : Specify the font file to use\n"
-    "  -g <gradient>  : Specify the color gradient (FromColor:ToColor, e.g. 0xff0000:0x00ff00)\n"
-    "  text           : The text to render\n"sv;
+    "  -v <gradient>  : Specify the vertical color gradient\n"
+    "  -h <gradient>  : Specify the horizontal color gradient\n"
+    "  text           : The text to render\n"
+    "\n"
+    "Gradients are specified as pairs of hexadecimal colors, e.g. \n"
+    "0xff0000:0x00ff00 for a red-to-green gradient.\n"sv;
 
 void print_help() {
     std::cout << help;
@@ -53,13 +57,14 @@ void print_help() {
 int main(int argc, char **argv) {
     InputParser opts(argc, argv);
 
-    if (opts.cmdOptionExists("-h") || opts.cmdOptionExists("--help")) {
+    if (opts.cmdOptionExists("-?") || opts.cmdOptionExists("--help")) {
         print_help();
         return EXIT_SUCCESS;
     }
 
     std::string filename = opts.getCmdOption("-f");
-    std::string gradient = opts.getCmdOption("-g");
+    std::string vgradient = opts.getCmdOption("-v");
+    std::string hgradient = opts.getCmdOption("-h");
     std::string text = argc % 2 == 0 ? argv[argc - 1] : "HELLO NOTCURSES!";
 
     if (filename.empty()) {
@@ -67,12 +72,18 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
-    std::uint32_t cstart=0, cend=0;
+    Tweening::Gradient vgrad = Tweening::undef;
+    Tweening::Gradient hgrad = Tweening::undef;
 
     std::size_t pos;
-    if (!gradient.empty() && (pos = gradient.find(":")) != std::string::npos) {
-        cstart = std::stoul(gradient.substr(0, pos), nullptr, 16);
-        cend = std::stoul(gradient.substr(pos + 1), nullptr, 16);
+    if (!vgradient.empty() && (pos = vgradient.find(":")) != std::string::npos) {
+        vgrad.start = std::stoul(vgradient.substr(0, pos), nullptr, 16);
+        vgrad.end = std::stoul(vgradient.substr(pos + 1), nullptr, 16);
+    }
+
+    if (!hgradient.empty() && (pos = hgradient.find(":")) != std::string::npos) {
+        hgrad.start = std::stoul(hgradient.substr(0, pos), nullptr, 16);
+        hgrad.end = std::stoul(hgradient.substr(pos + 1), nullptr, 16);
     }
 
     notcurses_options options{
@@ -90,7 +101,7 @@ int main(int argc, char **argv) {
 
     // Render using the current cursor position
     std_plane->putstr("\n");
-    font.render(std_plane, text, cstart, cend);
+    font.render(std_plane, text, vgrad, hgrad);
     nc.render();
 
     return EXIT_SUCCESS;

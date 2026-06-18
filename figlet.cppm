@@ -11,13 +11,22 @@ module;
 
 export module figlet;
 
-export class Tweening {
+export class Tweening
+{
+private:
+    constexpr static std::uint32_t oob = 0xFFFFFFFF;
 public:
     struct Gradient {
         std::uint32_t start;
         std::uint32_t end;
         std::size_t steps;
+
+        bool isDefined() const {
+            return start != oob && end != oob;
+        }
     };
+
+    static constexpr Gradient undef{ oob, oob, 0 };
 
     static std::vector<uint32_t> RGB(Gradient gradient)
     {
@@ -54,9 +63,50 @@ public:
 
         return result;
     }
+
+    static std::vector<std::vector<uint32_t>> Parallel(
+        Gradient vertical,
+        Gradient horizontal)
+    {
+        // Interpolate the vertical gradient
+        std::vector<uint32_t> gradientY = RGB(vertical);
+
+        // Interpolate the horizontal gradient
+        std::vector<uint32_t> gradientX = RGB(horizontal);
+
+        // Create the matrix
+        std::vector<std::vector<uint32_t>> matrix(
+            vertical.steps,
+            std::vector<uint32_t>(horizontal.steps)
+        );
+
+        for (uint32_t y = 0; y < vertical.steps; ++y) {
+            for (uint32_t x = 0; x < horizontal.steps; ++x) {
+                // Extract RGB values from the two gradients
+                uint8_t r1 = (gradientY[y] >> 16) & 0xFF;
+                uint8_t g1 = (gradientY[y] >> 8) & 0xFF;
+                uint8_t b1 = gradientY[y] & 0xFF;
+
+                uint8_t r2 = (gradientX[x] >> 16) & 0xFF;
+                uint8_t g2 = (gradientX[x] >> 8) & 0xFF;
+                uint8_t b2 = gradientX[x] & 0xFF;
+
+                // Combine colors (here: addition modulo 256)
+                uint8_t r = (r1 + r2) % 256;
+                uint8_t g = (g1 + g2) % 256;
+                uint8_t b = (b1 + b2) % 256;
+
+                // Store the result in the matrix
+                matrix[y][x] = (r << 16) | (g << 8) | b;
+            }
+        }
+
+        return matrix;
+    }
 };
 
-export class FigletFont {
+export class FigletFont
+{
 public:
     FigletFont() = default;
 
@@ -200,24 +250,66 @@ public:
      * @param y Top-left Y row coordinate.
      * @param x Top-left X column coordinate.
      * @param text String view containing UTF-8 input text.
-     * @param cstart Starting color for the gradient.
-     * @param cend Ending color for the gradient.
+     * @param vgradient Vertical gradient for the text.
+     * @param hgradient Horizontal gradient for the text.
      */
-    void render(ncpp::Plane* plane, int y, int x, std::string_view text, uint32_t cstart=0, uint32_t cend=0) const {
+    void render(
+        ncpp::Plane* plane,
+        int y,
+        int x,
+        std::string_view text,
+        Tweening::Gradient vgradient = Tweening::undef,
+        Tweening::Gradient hgradient = Tweening::undef
+    ) const
+    {
         if (height <= 0) return;
 
         auto lines = renderToStrings(text);
-        std::vector<uint32_t> colors;
+        std::vector<uint32_t> vtween;
+        std::vector<uint32_t> htween;
+        std::vector<std::vector<uint32_t>> hvcolors;
 
-        if (cstart && cend)
-            colors = Tweening::RGB(Tweening::Gradient{cstart, cend, lines.size()});
+        std::size_t max_width = 0;
+        if (hgradient.isDefined()) {
+            for (const auto& line : lines) {
+                max_width = std::max(max_width, line.size());
+            }
+        }
+
+        if (vgradient.isDefined() && hgradient.isDefined()) {
+            // parallel gradient
+            vgradient.steps = lines.size();
+            hgradient.steps = max_width;
+
+            hvcolors = Tweening::Parallel(vgradient, hgradient);
+        } else if (vgradient.isDefined()) {
+            vgradient.steps = lines.size();
+            vtween = Tweening::RGB(vgradient);
+        } else if (hgradient.isDefined()) {
+            hgradient.steps = max_width;
+            htween = Tweening::RGB(hgradient);
+        }
 
         for (int i = 0; i < lines.size(); ++i) {
-            if (cstart && cend)
-                plane->set_fg_rgb(colors[i]);
-
-            // Write strings directly onto the target plane coordinates
-            plane->putstr(y + i, x, lines[i].c_str());
+            if (vgradient.isDefined() && hgradient.isDefined()) {
+                // print by character
+                for (int j = 0; j < lines[i].size(); ++j) {
+                    plane->set_fg_rgb(hvcolors[i][j]);
+                    plane->putc(y + i, x + j, lines[i][j]);
+                }
+            } else if (vgradient.isDefined()) {
+                plane->set_fg_rgb(vtween[i]);
+                // Write strings directly onto the target plane coordinates
+                plane->putstr(y + i, x, lines[i].c_str());
+            } else if (hgradient.isDefined()) {
+                // print by character
+                for (int j = 0; j < lines[i].size(); ++j) {
+                    plane->set_fg_rgb(htween[j]);
+                    plane->putc(y + i, x + j, lines[i][j]);
+                }
+            } else {
+                plane->putstr(y + i, x, lines[i].c_str());
+            }
         }
     }
 
@@ -225,24 +317,65 @@ public:
      * @brief Renders text onto an ncpp::Plane using a horizontal full-width alignment.
      * @param plane The target Notcurses C++ plane.
      * @param text String view containing UTF-8 input text.
-     * @param cstart Starting color for the gradient.
-     * @param cend Ending color for the gradient.
+     * @param vgradient Vertical gradient for the text.
+     * @param hgradient Horizontal gradient for the text.
      */
-    void render(ncpp::Plane* plane, std::string_view text, uint32_t cstart=0, uint32_t cend=0) const {
+    void render(
+        ncpp::Plane* plane,
+        std::string_view text,
+        Tweening::Gradient vgradient = Tweening::undef,
+        Tweening::Gradient hgradient = Tweening::undef
+    ) const
+    {
         if (height <= 0) return;
 
         auto lines = renderToStrings(text, true);
-        std::vector<uint32_t> colors;
 
-        if (cstart && cend)
-            colors = Tweening::RGB(Tweening::Gradient{cstart, cend, lines.size()});
+        std::vector<uint32_t> vtween;
+        std::vector<uint32_t> htween;
+        std::vector<std::vector<uint32_t>> hvcolors;
+
+        std::size_t max_width = 0;
+        if (hgradient.isDefined()) {
+            for (const auto& line : lines) {
+                max_width = std::max(max_width, line.size());
+            }
+            std::cout << max_width << std::endl;
+        }
+
+        if (vgradient.isDefined() && hgradient.isDefined()) {
+            // parallel gradient
+            vgradient.steps = lines.size();
+            hgradient.steps = max_width;
+
+            hvcolors = Tweening::Parallel(vgradient, hgradient);
+        } else if (vgradient.isDefined()) {
+            vgradient.steps = lines.size();
+            vtween = Tweening::RGB(vgradient);
+        } else if (hgradient.isDefined()) {
+            hgradient.steps = max_width;
+            htween = Tweening::RGB(hgradient);
+        }
 
         for (int i = 0; i < lines.size(); ++i) {
-            if (cstart && cend)
-                plane->set_fg_rgb(colors[i]);
-
-            // Write strings directly onto the target plane
-            plane->putstr(lines[i].c_str());
+            if (vgradient.isDefined() && hgradient.isDefined()) {
+                // print by character
+                for (int j = 0; j < lines[i].size(); ++j) {
+                    plane->set_fg_rgb(hvcolors[i][j]);
+                    plane->putc(lines[i][j]);
+                }
+            } else if (vgradient.isDefined()) {
+                plane->set_fg_rgb(vtween[i]);
+                plane->putstr(lines[i].c_str());
+            } else if (hgradient.isDefined()) {
+                // print by character
+                for (int j = 0; j < lines[i].size(); ++j) {
+                    plane->set_fg_rgb(htween[j]);
+                    plane->putc(lines[i][j]);
+                }
+            } else {
+                plane->putstr(lines[i].c_str());
+            }
         }
     }
 
