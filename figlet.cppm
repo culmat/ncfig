@@ -1,6 +1,5 @@
 module;
 
-// Global module fragment for external library and standard library headers
 #include <ncpp/Plane.hh>
 #include <iostream>
 #include <fstream>
