@@ -265,30 +265,12 @@ public:
         if (height <= 0) return;
 
         auto lines = renderToStrings(text);
-        std::vector<uint32_t> vtween;
-        std::vector<uint32_t> htween;
-        std::vector<std::vector<uint32_t>> hvcolors;
-
-        std::size_t max_width = 0;
-        if (hgradient.isDefined()) {
-            for (const auto& line : lines) {
-                max_width = std::max(max_width, line.size());
-            }
-        }
-
-        if (vgradient.isDefined() && hgradient.isDefined()) {
-            // parallel gradient
-            vgradient.steps = lines.size();
-            hgradient.steps = max_width;
-
-            hvcolors = Tweening::Parallel(vgradient, hgradient);
-        } else if (vgradient.isDefined()) {
-            vgradient.steps = lines.size();
-            vtween = Tweening::RGB(vgradient);
-        } else if (hgradient.isDefined()) {
-            hgradient.steps = max_width;
-            htween = Tweening::RGB(hgradient);
-        }
+        auto [
+            vtween,
+            htween,
+            hvcolors,
+            max_width
+        ] = prepareGradients(lines, vgradient, hgradient);
 
         for (int i = 0; i < lines.size(); ++i) {
             if (vgradient.isDefined() && hgradient.isDefined()) {
@@ -330,32 +312,12 @@ public:
         if (height <= 0) return;
 
         auto lines = renderToStrings(text, true);
-
-        std::vector<uint32_t> vtween;
-        std::vector<uint32_t> htween;
-        std::vector<std::vector<uint32_t>> hvcolors;
-
-        std::size_t max_width = 0;
-        if (hgradient.isDefined()) {
-            for (const auto& line : lines) {
-                max_width = std::max(max_width, line.size());
-            }
-            std::cout << max_width << std::endl;
-        }
-
-        if (vgradient.isDefined() && hgradient.isDefined()) {
-            // parallel gradient
-            vgradient.steps = lines.size();
-            hgradient.steps = max_width;
-
-            hvcolors = Tweening::Parallel(vgradient, hgradient);
-        } else if (vgradient.isDefined()) {
-            vgradient.steps = lines.size();
-            vtween = Tweening::RGB(vgradient);
-        } else if (hgradient.isDefined()) {
-            hgradient.steps = max_width;
-            htween = Tweening::RGB(hgradient);
-        }
+        auto [
+            vtween,
+            htween,
+            hvcolors,
+            max_width
+        ] = prepareGradients(lines, vgradient, hgradient);
 
         for (int i = 0; i < lines.size(); ++i) {
             if (vgradient.isDefined() && hgradient.isDefined()) {
@@ -463,5 +425,48 @@ private:
         }
 
         return ret;
+    }
+
+    /**
+     * @brief Prepares the gradients and colors for rendering.
+     * @param lines The lines of text.
+     * @param vgradient Vertical gradient.
+     * @param hgradient Horizontal gradient.
+     * @return A tuple with (vtween, htween, hvcolors, max_width).
+     */
+    std::tuple<
+        std::vector<uint32_t>,
+        std::vector<uint32_t>,
+        std::vector<std::vector<uint32_t>>,
+        std::size_t
+    > prepareGradients(
+        const std::vector<std::string>& lines,
+        Tweening::Gradient vgradient,
+        Tweening::Gradient hgradient
+    ) const {
+        std::vector<uint32_t> vtween;
+        std::vector<uint32_t> htween;
+        std::vector<std::vector<uint32_t>> hvcolors;
+        std::size_t max_width = 0;
+
+        if (hgradient.isDefined()) {
+            for (const auto& line : lines) {
+                max_width = std::max(max_width, line.size());
+            }
+        }
+
+        if (vgradient.isDefined() && hgradient.isDefined()) {
+            vgradient.steps = lines.size();
+            hgradient.steps = max_width;
+            hvcolors = Tweening::Parallel(vgradient, hgradient);
+        } else if (vgradient.isDefined()) {
+            vgradient.steps = lines.size();
+            vtween = Tweening::RGB(vgradient);
+        } else if (hgradient.isDefined()) {
+            hgradient.steps = max_width;
+            htween = Tweening::RGB(hgradient);
+        }
+
+        return {vtween, htween, hvcolors, max_width};
     }
 };
