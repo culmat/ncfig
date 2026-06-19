@@ -36,7 +36,7 @@ public:
         std::size_t height;
     };
 
-    static std::vector<uint32_t> RGB(Gradient gradient)
+    static std::vector<uint32_t> Linear(Gradient gradient)
     {
         std::vector<uint32_t> result;
         if (gradient.steps == 0) return result;
@@ -77,10 +77,10 @@ public:
         Gradient horizontal)
     {
         // Interpolate the vertical gradient
-        std::vector<uint32_t> gradientY = RGB(vertical);
+        std::vector<uint32_t> gradientY = Linear(vertical);
 
         // Interpolate the horizontal gradient
-        std::vector<uint32_t> gradientX = RGB(horizontal);
+        std::vector<uint32_t> gradientX = Linear(horizontal);
 
         // Create the matrix
         std::vector<std::vector<uint32_t>> matrix(

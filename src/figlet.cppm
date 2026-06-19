@@ -380,14 +380,14 @@ private:
         {
             // One-dimensional gradient (vertical)
             first.steps = lines.size();
-            one_d = Tweening::RGB(first);
+            one_d = Tweening::Linear(first);
         }
         else if (first.type == Tweening::GradientType::Linear
             && first.orientation == Tweening::Orientation::Horizontal)
         {
             // One-dimensional gradient (horizontal)
             first.steps = max_width;
-            one_d = Tweening::RGB(first);
+            one_d = Tweening::Linear(first);
         }
 
         return {one_d, two_d, max_width};
