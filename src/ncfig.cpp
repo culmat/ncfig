@@ -12,20 +12,21 @@ import nctui.figlet;
 import nctui.tweening;
 
 auto help = "Usage: ncfig -f <font> [-v <gradient>] [-r <gradient>] [-h <gradient>] [text]\n"
-    "\n"
-    "  -f <font>      : Specify the font file to use\n"
-    "  -v <gradient>  : Specify the vertical color gradient\n"
-    "  -h <gradient>  : Specify the horizontal color gradient\n"
-    "  -r <gradient>  : Specify the radial color gradient\n"
-    "  text           : The text to render\n"
-    "\n"
-    "Gradients are specified as pairs of hexadecimal colors, e.g. \n"
-    "0xff0000:0x00ff00 for a red-to-green gradient.\n"
-    "\n"
-    "Linear and vertical gradients can be combined (the two colors\n"
-    "will be added together); radial gradients are exclusive.\n"sv;
+            "\n"
+            "  -f <font>      : Specify the font file to use\n"
+            "  -v <gradient>  : Specify the vertical color gradient\n"
+            "  -h <gradient>  : Specify the horizontal color gradient\n"
+            "  -r <gradient>  : Specify the radial color gradient\n"
+            "  text           : The text to render\n"
+            "\n"
+            "Gradients are specified as pairs of hexadecimal colors, e.g. \n"
+            "0xff0000:0x00ff00 for a red-to-green gradient.\n"
+            "\n"
+            "Linear and vertical gradients can be combined (the two colors\n"
+            "will be added together); radial gradients are exclusive.\n"sv;
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
     CmdLine opts(argc, argv);
 
     if (opts.cmdOptionExists("-?") || opts.cmdOptionExists("--help")) {
@@ -59,6 +60,7 @@ int main(int argc, char **argv) {
     Tweening::Gradient second{};
 
     std::size_t pos;
+
     if (!vgradient.empty() && (pos = vgradient.find(":")) != std::string::npos) {
         first.start = std::stoul(vgradient.substr(0, pos), nullptr, 16);
         first.end = std::stoul(vgradient.substr(pos + 1), nullptr, 16);
@@ -93,6 +95,7 @@ int main(int argc, char **argv) {
     ncpp::Plane* std_plane = nc.get_stdplane();
 
     FigletFont font;
+
     if (!font.loadFromFile(filename)) {
         std::cerr << "Failed to parse font file.\n";
         return EXIT_FAILURE;

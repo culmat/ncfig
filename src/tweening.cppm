@@ -39,7 +39,11 @@ public:
     static std::vector<uint32_t> Linear(Gradient gradient)
     {
         std::vector<uint32_t> result;
-        if (gradient.steps == 0) return result;
+
+        if (gradient.steps == 0) {
+            return result;
+        }
+
         if (gradient.steps == 1) {
             result.push_back(gradient.start);
             return result;
@@ -55,6 +59,7 @@ public:
         uint8_t b2 = gradient.end & 0xFF;
 
         result.reserve(gradient.steps);
+
         for (uint32_t i = 0; i < gradient.steps; ++i) {
             // Calculate the interpolation factor (0.0 to 1.0)
             float t = static_cast<float>(i) / (gradient.steps - 1);
@@ -120,9 +125,9 @@ public:
 
         // Calculate max distance
         float maxDist = std::sqrt(
-            std::pow(std::max(centerX, gradient.width - 1 - centerX), 2) +
-            std::pow(std::max(centerY, gradient.height - 1 - centerY), 2)
-        );
+                            std::pow(std::max(centerX, gradient.width - 1 - centerX), 2) +
+                            std::pow(std::max(centerY, gradient.height - 1 - centerY), 2)
+                        );
 
         // Extract RGB values of start and end colors
         uint8_t r1 = (gradient.start >> 16) & 0xFF;

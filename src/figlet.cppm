@@ -23,13 +23,16 @@ public:
      * @param filename Path to the .flf file.
      * @return true if successfully loaded and parsed, false otherwise.
      */
-    bool loadFromFile(const std::string& filename) {
+    bool loadFromFile(const std::string& filename)
+    {
         std::ifstream file(filename, std::ios::in);
+
         if (!file.is_open()) {
             return false;
         }
 
         std::string header;
+
         if (!std::getline(file, header)) {
             return false;
         }
@@ -53,6 +56,7 @@ public:
         // Skip any comment lines at the beginning of the file
         for (int i = 0; i < comment_lines; ++i) {
             std::string dummy;
+
             if (!std::getline(file, dummy)) {
                 return false;
             }
@@ -64,8 +68,10 @@ public:
         // 1. Parse standard printable ASCII characters (characters 32 to 126)
         for (char32_t code = 32; code <= 126; ++code) {
             std::vector<std::string> glyph_rows;
+
             for (int r = 0; r < height; ++r) {
                 std::string line;
+
                 if (!std::getline(file, line)) {
                     return false;
                 }
@@ -80,6 +86,7 @@ public:
                 if (!line.empty() && line.back() == endmark) {
                     line.pop_back();
                 }
+
                 if (!line.empty() && line.back() == endmark) {
                     line.pop_back();
                 }
@@ -93,21 +100,28 @@ public:
 
                 glyph_rows.push_back(line);
             }
+
             glyphs[code] = std::move(glyph_rows);
         }
 
         // 2. Parse any extra/extended Unicode characters present in the font file
         std::string code_line;
+
         while (std::getline(file, code_line)) {
-            if (code_line.empty()) continue;
+            if (code_line.empty()) {
+                continue;
+            }
 
             std::istringstream code_iss(code_line);
             std::string code_str;
             code_iss >> code_str;
 
-            if (code_str.empty()) continue;
+            if (code_str.empty()) {
+                continue;
+            }
 
             char32_t code = 0;
+
             try {
                 // Handle hex (0x), octal (0), and base-10 indices
                 if (code_str.size() > 2 && code_str[0] == '0' && (code_str[1] == 'x' || code_str[1] == 'X')) {
@@ -123,8 +137,10 @@ public:
 
             std::vector<std::string> glyph_rows;
             bool success = true;
+
             for (int r = 0; r < height; ++r) {
                 std::string line;
+
                 if (!std::getline(file, line)) {
                     success = false;
                     break;
@@ -133,6 +149,7 @@ public:
                 if (!line.empty() && line.back() == endmark) {
                     line.pop_back();
                 }
+
                 if (!line.empty() && line.back() == endmark) {
                     line.pop_back();
                 }
@@ -142,10 +159,14 @@ public:
                         ch = ' ';
                     }
                 }
+
                 glyph_rows.push_back(line);
             }
 
-            if (!success) break;
+            if (!success) {
+                break;
+            }
+
             glyphs[code] = std::move(glyph_rows);
         }
 
@@ -170,10 +191,12 @@ public:
         Tweening::Gradient second = {}
     ) const
     {
-        if (height <= 0) return;
+        if (height <= 0) {
+            return;
+        }
 
         auto lines = renderToStrings(text);
-        auto [
+        auto[
             one_d,
             two_d,
             max_width
@@ -217,10 +240,12 @@ public:
         Tweening::Gradient second = {}
     ) const
     {
-        if (height <= 0) return;
+        if (height <= 0) {
+            return;
+        }
 
         auto lines = renderToStrings(text, true);
-        auto [
+        auto[
             one_d,
             two_d,
             max_width
@@ -249,7 +274,10 @@ public:
         }
     }
 
-    int getHeight() const { return height; }
+    int getHeight() const
+    {
+        return height;
+    }
 
 private:
     char hardblank = '$';
@@ -262,9 +290,11 @@ private:
     std::unordered_map<char32_t, std::vector<std::string>> glyphs;
 
     // Simple robust custom UTF-8 state decoder helper loop
-    static std::vector<char32_t> decodeUtf8(std::string_view text) {
+    static std::vector<char32_t> decodeUtf8(std::string_view text)
+    {
         std::vector<char32_t> codepoints;
         size_t i = 0;
+
         while (i < text.size()) {
             unsigned char c = text[i];
             char32_t cp = 0;
@@ -291,17 +321,20 @@ private:
                 for (size_t b = 1; b < bytes; ++b) {
                     cp = (cp << 6) | (static_cast<unsigned char>(text[i + b]) & 0x3F);
                 }
+
                 i += bytes;
             } else {
                 cp = c;
                 i += 1;
             }
+
             codepoints.push_back(cp);
         }
+
         return codepoints;
     }
 
-    std::vector<std::string> renderToStrings(const std::string_view text, bool append_nl=false) const
+    std::vector<std::string> renderToStrings(const std::string_view text, bool append_nl = false) const
     {
         std::vector<std::string> ret;
 
@@ -327,7 +360,9 @@ private:
                 }
             }
 
-            if (append_nl) line += '\n';
+            if (append_nl) {
+                line += '\n';
+            }
 
             ret.emplace_back(line);
         }
@@ -342,15 +377,16 @@ private:
      * @param second Second gradient.
      * @return A tuple with (one_d, two_d, max_width).
      */
-    std::tuple<
-        std::vector<uint32_t>,
+    std::tuple <
+    std::vector<uint32_t>,
         std::vector<std::vector<uint32_t>>,
         std::size_t
-    > prepareGradients(
-        const std::vector<std::string>& lines,
-        Tweening::Gradient first,
-        Tweening::Gradient second
-    ) const {
+        > prepareGradients(
+            const std::vector<std::string>& lines,
+            Tweening::Gradient first,
+            Tweening::Gradient second
+        ) const
+    {
         std::vector<uint32_t> one_d;
         std::vector<std::vector<uint32_t>> two_d;
         std::size_t max_width = 0;
@@ -360,31 +396,24 @@ private:
         }
 
         if (first.type == Tweening::GradientType::Linear
-            && second.type == Tweening::GradientType::Linear)
-        {
+                && second.type == Tweening::GradientType::Linear) {
             // this combination is only supported for parallel linear
             // gradients, so we can ignore orientation
             first.steps = lines.size();
             second.steps = max_width;
             two_d = Tweening::Parallel(first, second);
-        }
-        else if (first.type == Tweening::GradientType::Radial)
-        {
+        } else if (first.type == Tweening::GradientType::Radial) {
             // Radial gradient
             first.width = max_width;
             first.height = lines.size();
             two_d = Tweening::radial(first);
-        }
-        else if (first.type == Tweening::GradientType::Linear
-            && first.orientation == Tweening::Orientation::Vertical)
-        {
+        } else if (first.type == Tweening::GradientType::Linear
+                   && first.orientation == Tweening::Orientation::Vertical) {
             // One-dimensional gradient (vertical)
             first.steps = lines.size();
             one_d = Tweening::Linear(first);
-        }
-        else if (first.type == Tweening::GradientType::Linear
-            && first.orientation == Tweening::Orientation::Horizontal)
-        {
+        } else if (first.type == Tweening::GradientType::Linear
+                   && first.orientation == Tweening::Orientation::Horizontal) {
             // One-dimensional gradient (horizontal)
             first.steps = max_width;
             one_d = Tweening::Linear(first);
