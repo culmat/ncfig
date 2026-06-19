@@ -48,7 +48,12 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
-    std::string text = argc % 2 == 0 ? argv[argc - 1] : "HELLO NOTCURSES!";
+    // Get the text to display
+    std::string text = opts.getText();
+
+    if (text.empty()) {
+        text = "HELLO NOTCURSES!";
+    }
 
     if (filename.empty()) {
         std::cout << help;

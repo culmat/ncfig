@@ -70,20 +70,11 @@ int main(int argc, char **argv)
         }
     }
 
-    // Determine text argument - it's the last argument if argc is odd
-    // (since we have flags and their values before it)
-    std::string text = "HELLO NOTCURSES!";
+    // Get the text to display
+    std::string text = opts.getText();
 
-    if (argc > 1) {
-        // Find the last non-flag argument
-        for (int i = argc - 1; i >= 1; i--) {
-            std::string arg = argv[i];
-
-            if (arg != "-f" && arg != "-v" && arg != "-h" && arg != "-r" && arg != "-s" && arg[0] != '-') {
-                text = arg;
-                break;
-            }
-        }
+    if (text.empty()) {
+        text = "HELLO NOTCURSES!";
     }
 
     if (filename.empty()) {
