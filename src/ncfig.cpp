@@ -10,7 +10,8 @@
 
 using namespace std::string_view_literals;
 
-import figlet;
+import nctui.figlet;
+import nctui.tweening;
 
 // Source - https://stackoverflow.com/a/868894
 // Posted by iain, modified by community. See post 'Timeline' for change history
