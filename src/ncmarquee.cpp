@@ -43,13 +43,9 @@ int main(int argc, char **argv)
     }
 
     std::string filename = opts.getCmdOption("-f");
-    std::string vgradient = opts.getCmdOption("-v");
-    std::string hgradient = opts.getCmdOption("-h");
-    std::string rgradient = opts.getCmdOption("-r");
-    std::string speed_str = opts.getCmdOption("-s");
 
-    // Sanity check
-    if (!rgradient.empty() && (!vgradient.empty() || !hgradient.empty())) {
+    // Validate gradient options
+    if (!opts.validateGradients()) {
         std::cerr << "Error: radial and vertical gradients cannot be combined.\n";
         std::cout << help;
 
@@ -58,7 +54,7 @@ int main(int argc, char **argv)
 
     // Parse speed option (default: 50ms)
     int delay_ms = 50;
-
+    std::string speed_str = opts.getCmdOption("-s");
     if (!speed_str.empty()) {
         try {
             delay_ms = std::stoi(speed_str);
@@ -69,6 +65,9 @@ int main(int argc, char **argv)
             return EXIT_FAILURE;
         }
     }
+
+    // Get gradients from command line options
+    auto [first, second] = opts.getGradients();
 
     // Get the text to display
     std::string text = opts.getText();
@@ -81,37 +80,6 @@ int main(int argc, char **argv)
         std::cout << help;
 
         return EXIT_FAILURE;
-    }
-
-    Tweening::Gradient first{};
-    Tweening::Gradient second{};
-
-    std::size_t pos;
-
-    if (!vgradient.empty() && (pos = vgradient.find(":")) != std::string::npos) {
-        first.start = std::stoul(vgradient.substr(0, pos), nullptr, 16);
-        first.end = std::stoul(vgradient.substr(pos + 1), nullptr, 16);
-
-        first.type = Tweening::GradientType::Linear;
-        first.orientation = Tweening::Orientation::Vertical;
-    }
-
-    if (!hgradient.empty() && (pos = hgradient.find(":")) != std::string::npos) {
-        // when both v and h gradients are specified, use second for vertical
-        Tweening::Gradient &dest = vgradient.empty() ? first : second;
-
-        dest.start = std::stoul(hgradient.substr(0, pos), nullptr, 16);
-        dest.end = std::stoul(hgradient.substr(pos + 1), nullptr, 16);
-
-        dest.type = Tweening::GradientType::Linear;
-        dest.orientation = Tweening::Orientation::Horizontal;
-    }
-
-    if (!rgradient.empty() && (pos = rgradient.find(":")) != std::string::npos) {
-        first.start = std::stoul(rgradient.substr(0, pos), nullptr, 16);
-        first.end = std::stoul(rgradient.substr(pos + 1), nullptr, 16);
-
-        first.type = Tweening::GradientType::Radial;
     }
 
     // Initialize NotCurses in full-screen mode (not CLI mode)
@@ -132,7 +100,7 @@ int main(int argc, char **argv)
     }
 
     // Get the dimensions of the rendered text
-    auto[text_width, text_height] = font.getTextDimensions(text);
+    auto [text_width, text_height] = font.getTextDimensions(text);
 
     if (text_width == 0 || text_height == 0) {
         std::cerr << "Failed to render text or text has no dimensions.\n";

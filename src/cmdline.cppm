@@ -11,6 +11,8 @@ export module nctui.cmdline;
 // Posted by iain, modified by community. See post 'Timeline' for change history
 // Retrieved 2026-06-18, License - CC BY-SA 3.0
 
+import nctui.tweening;
+
 export class CmdLine
 {
 public:
@@ -47,6 +49,79 @@ public:
     const std::string& getText() const
     {
         return text;
+    }
+
+    /**
+     * @brief Parses gradient options and returns configured Gradient structs.
+     * @param vgradient_str Value from -v option (vertical gradient)
+     * @param hgradient_str Value from -h option (horizontal gradient)
+     * @param rgradient_str Value from -r option (radial gradient)
+     * @return A pair of (first, second) Gradient structs ready for use with FigletFont::render()
+     */
+    static std::pair<Tweening::Gradient, Tweening::Gradient> parseGradients(
+        const std::string& vgradient_str,
+        const std::string& hgradient_str,
+        const std::string& rgradient_str)
+    {
+        Tweening::Gradient first{};
+        Tweening::Gradient second{};
+
+        std::size_t pos;
+
+        if (!vgradient_str.empty() && (pos = vgradient_str.find(":")) != std::string::npos) {
+            first.start = std::stoul(vgradient_str.substr(0, pos), nullptr, 16);
+            first.end = std::stoul(vgradient_str.substr(pos + 1), nullptr, 16);
+
+            first.type = Tweening::GradientType::Linear;
+            first.orientation = Tweening::Orientation::Vertical;
+        }
+
+        if (!hgradient_str.empty() && (pos = hgradient_str.find(":")) != std::string::npos) {
+            // when both v and h gradients are specified, use second for vertical
+            Tweening::Gradient &dest = vgradient_str.empty() ? first : second;
+
+            dest.start = std::stoul(hgradient_str.substr(0, pos), nullptr, 16);
+            dest.end = std::stoul(hgradient_str.substr(pos + 1), nullptr, 16);
+
+            dest.type = Tweening::GradientType::Linear;
+            dest.orientation = Tweening::Orientation::Horizontal;
+        }
+
+        if (!rgradient_str.empty() && (pos = rgradient_str.find(":")) != std::string::npos) {
+            first.start = std::stoul(rgradient_str.substr(0, pos), nullptr, 16);
+            first.end = std::stoul(rgradient_str.substr(pos + 1), nullptr, 16);
+
+            first.type = Tweening::GradientType::Radial;
+        }
+
+        return {first, second};
+    }
+
+    /**
+     * @brief Parses gradient options from the command line and returns configured Gradient structs.
+     * Uses getCmdOption to fetch -v, -h, -r values.
+     * @return A pair of (first, second) Gradient structs ready for use with FigletFont::render()
+     */
+    std::pair<Tweening::Gradient, Tweening::Gradient> getGradients() const
+    {
+        return parseGradients(
+            getCmdOption("-v"),
+            getCmdOption("-h"),
+            getCmdOption("-r")
+        );
+    }
+
+    /**
+     * @brief Validates that radial gradients are not combined with other gradients.
+     * @return true if the gradient combination is valid, false otherwise.
+     */
+    bool validateGradients() const
+    {
+        std::string rgradient = getCmdOption("-r");
+        std::string vgradient = getCmdOption("-v");
+        std::string hgradient = getCmdOption("-h");
+
+        return rgradient.empty() || (vgradient.empty() && hgradient.empty());
     }
 
 private:
