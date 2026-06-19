@@ -1,3 +1,2 @@
-ncfig
-src/figlet.o
-src/figlet.pcm
+.xmake/
+build/
