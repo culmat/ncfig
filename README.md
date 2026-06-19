@@ -1,12 +1,16 @@
-# ncfig
+# ncfig: NotCurses Tools for FIGlet Fonts
+
+A collection of command-line tools for rendering beautiful [FIGlet](https://www.figlet.org/) fonts with [Notcurses](https://github.com/dankamongmen/notcurses), featuring true color gradient support.
 
 ![ncfig Logo](/logo.png "ncfig. This was rendered using the font univers.flf")
 
-Renders text to the terminal using beautiful [FIGlet](https://www.figlet.org/) fonts, optionally with true color gradients.
+## Tools
 
-Powered by [Notcurses](https://github.com/dankamongmen/notcurses).
+### ncfig
 
-## Usage
+Renders text to the terminal using FIGlet fonts.
+
+**Usage:**
 
 ```
 ncfig -f <font> [-v <gradient>] [-h <gradient>] [-r <gradient>] [text]
@@ -20,13 +24,58 @@ ncfig -f <font> [-v <gradient>] [-h <gradient>] [-r <gradient>] [text]
 | `-r <gradient>` | Radial color gradient |
 | `text` | Text to render (default: `HELLO NOTCURSES!`) |
 
-Gradients are specified as two hex colors separated by a colon:
+**Example:**
 
 ```
 ncfig -f fonts/banner.flf -v 0xff0000:0x0000ff "Hello"
 ```
 
 Vertical and horizontal gradients can be combined (colors are added channel-wise). Radial gradients are mutually exclusive with the others.
+
+### ncmarquee
+
+Creates a full-screen marquee animation with FIGlet text. The text floats from right to left, and when it has left the visible area entirely, it comes back in from the right. Press any key to exit.
+
+**Usage:**
+
+```
+ncmarquee -f <font> [-v <gradient>] [-h <gradient>] [-r <gradient>] [-s <ms>] [text]
+```
+
+| Option | Description |
+|--------|-------------|
+| `-f <font>` | Path to a FIGlet font file (`.flf`) |
+| `-v <gradient>` | Vertical color gradient |
+| `-h <gradient>` | Horizontal color gradient |
+| `-r <gradient>` | Radial color gradient |
+| `-s <ms>` | Scroll speed in milliseconds (default: 50) |
+| `text` | Text to render (default: `HELLO NOTCURSES!`) |
+
+**Examples:**
+
+```
+# Default speed (50ms)
+ncmarquee -f fonts/standard.flf "MARQUEE"
+
+# Faster animation (20ms delay)
+ncmarquee -f fonts/standard.flf -s 20 "HELLO WORLD"
+
+# With gradient
+ncmarquee -f fonts/banner.flf -h 0xff0000:0x0000ff -s 30 "NOTCURSES"
+```
+
+## Gradients
+
+Gradients are specified as pairs of hexadecimal colors separated by a colon:
+
+- `0xff0000` = Red
+- `0x00ff00` = Green
+- `0x0000ff` = Blue
+- `0xffff00` = Yellow
+- `0xff00ff` = Magenta
+- `0x00ffff` = Cyan
+
+Example: `0xff0000:0x0000ff` creates a red-to-blue gradient.
 
 ## Getting Fonts
 
@@ -42,19 +91,30 @@ The FIGlet site has a FTP server as well, but as FTP is so very dead I assume yo
 
 Requires [xmake](https://xmake.io) and a recent C++ compiler.
 
+### Build all tools:
+
 ```sh
 xmake
 ```
 
-You'll find the generated binary in `build/linux/x86_64/release/ncfig`.
+Binaries will be in `build/linux/x86_64/release/`:
+- `ncfig` - Static FIGlet renderer
+- `ncmarquee` - Full-screen marquee animation
 
-Debug builds:
+### Build a specific tool:
+
+```sh
+xmake build ncfig
+xmake build ncmarquee
+```
+
+### Debug builds:
 
 ```sh
 xmake f -m debug && xmake
 ```
 
-In this case, the executable is dropped as `build/linux/x86_64/debug/ncfig`.
+In this case, the executables are in `build/linux/x86_64/debug/`.
 
 ### Dependencies
 

@@ -279,6 +279,32 @@ public:
         return height;
     }
 
+    /**
+     * @brief Returns the dimensions of rendered text.
+     * @param text String view containing UTF-8 input text.
+     * @return A pair of (width, height) in columns and rows.
+     */
+    std::pair<int, int> getTextDimensions(std::string_view text) const
+    {
+        if (height <= 0) {
+            return {0, 0};
+        }
+
+        auto lines = renderToStrings(text);
+
+        if (lines.empty()) {
+            return {0, 0};
+        }
+
+        int max_width = 0;
+
+        for (const auto& line : lines) {
+            max_width = std::max(max_width, static_cast<int>(line.size()));
+        }
+
+        return {max_width, static_cast<int>(lines.size())};
+    }
+
 private:
     char hardblank = '$';
     int height = 0;
