@@ -8,6 +8,17 @@ export module nctui.tweening;
 
 export class Tweening
 {
+private:
+    // Extract RGB values from a color
+    static std::tuple<uint8_t, uint8_t, uint8_t> extractRGB(uint32_t color)
+    {
+        return std::tuple<uint8_t, uint8_t, uint8_t>(
+            (color >> 16) & 0xFF,
+            (color >> 8) & 0xFF,
+            color & 0xFF
+        );
+    }
+
 public:
     enum class GradientType {
         Unconfigured,
@@ -50,13 +61,8 @@ public:
         }
 
         // Extract the RGB components of start and end
-        uint8_t r1 = (gradient.start >> 16) & 0xFF;
-        uint8_t g1 = (gradient.start >> 8) & 0xFF;
-        uint8_t b1 = gradient.start & 0xFF;
-
-        uint8_t r2 = (gradient.end >> 16) & 0xFF;
-        uint8_t g2 = (gradient.end >> 8) & 0xFF;
-        uint8_t b2 = gradient.end & 0xFF;
+        auto [r1, g1, b1] = extractRGB(gradient.start);
+        auto [r2, g2, b2] = extractRGB(gradient.end);
 
         result.reserve(gradient.steps);
 
@@ -96,13 +102,8 @@ public:
         for (uint32_t y = 0; y < vertical.steps; ++y) {
             for (uint32_t x = 0; x < horizontal.steps; ++x) {
                 // Extract RGB values from the two gradients
-                uint8_t r1 = (gradientY[y] >> 16) & 0xFF;
-                uint8_t g1 = (gradientY[y] >> 8) & 0xFF;
-                uint8_t b1 = gradientY[y] & 0xFF;
-
-                uint8_t r2 = (gradientX[x] >> 16) & 0xFF;
-                uint8_t g2 = (gradientX[x] >> 8) & 0xFF;
-                uint8_t b2 = gradientX[x] & 0xFF;
+                auto [r1, g1, b1] = extractRGB(gradientY[y]);
+                auto [r2, g2, b2] = extractRGB(gradientX[x]);
 
                 // Combine colors (here: addition modulo 256)
                 uint8_t r = (r1 + r2) % 256;
@@ -130,13 +131,8 @@ public:
                         );
 
         // Extract RGB values of start and end colors
-        uint8_t r1 = (gradient.start >> 16) & 0xFF;
-        uint8_t g1 = (gradient.start >> 8) & 0xFF;
-        uint8_t b1 = gradient.start & 0xFF;
-
-        uint8_t r2 = (gradient.end >> 16) & 0xFF;
-        uint8_t g2 = (gradient.end >> 8) & 0xFF;
-        uint8_t b2 = gradient.end & 0xFF;
+        auto [r1, g1, b1] = extractRGB(gradient.start);
+        auto [r2, g2, b2] = extractRGB(gradient.end);
 
         // Create matrix
         std::vector<std::vector<uint32_t>> matrix(
