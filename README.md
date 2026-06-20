@@ -50,6 +50,7 @@ ncmarquee -f <font> [-v <gradient>] [-h <gradient>] [-r <gradient>] [-s <ms>] [t
 | `-r <gradient>` | Radial color gradient |
 | `-s <ms>` | Scroll speed in milliseconds (default: 50) |
 | `-t` | Apply gradient to text dimensions (default: apply to the visible area of the text) |
+| `-c` | Circular mode (text is directly followed by itself) |
 | `text` | Text to render (default: `HELLO NOTCURSES!`) |
 
 **Examples:**

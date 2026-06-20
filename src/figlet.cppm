@@ -549,12 +549,12 @@ private:
         } else if (first.type == Tweening::GradientType::Linear
                    && first.orientation == Tweening::Orientation::Vertical) {
             // One-dimensional gradient (vertical)
-            first.steps = lines.size();
+            if (first.steps == 0) first.steps = lines.size();
             one_d = Tweening::Linear(first);
         } else if (first.type == Tweening::GradientType::Linear
                    && first.orientation == Tweening::Orientation::Horizontal) {
             // One-dimensional gradient (horizontal)
-            first.steps = max_width;
+            if (first.steps == 0) first.steps = max_width;
             one_d = Tweening::Linear(first);
         }
 
