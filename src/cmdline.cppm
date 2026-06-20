@@ -16,7 +16,7 @@ import nctui.tweening;
 export class CmdLine
 {
 public:
-    CmdLine(int &argc, char **argv)
+    CmdLine(int& argc, char** argv)
     {
         for (int i = 1; i < argc; ++i) {
             this->tokens.push_back(std::string(argv[i]));
@@ -68,11 +68,10 @@ public:
 
         // Helper lambda to parse a gradient sparseGradientStringtring into start, center, end
         auto parseGradientString = [](
-            const std::string& gradient_str,
-            Tweening::Gradient& grad,
-            Tweening::GradientType type,
-            Tweening::Orientation orient=Tweening::Orientation::Unconfigured)
-        {
+                                       const std::string & gradient_str,
+                                       Tweening::Gradient & grad,
+                                       Tweening::GradientType type,
+        Tweening::Orientation orient = Tweening::Orientation::Unconfigured) {
             if (gradient_str.empty()) {
                 return;
             }
@@ -81,10 +80,12 @@ public:
             std::vector<std::string> parts;
             std::size_t start = 0;
             std::size_t pos;
+
             while ((pos = gradient_str.find(":", start)) != std::string::npos) {
                 parts.push_back(gradient_str.substr(start, pos - start));
                 start = pos + 1;
             }
+
             parts.push_back(gradient_str.substr(start));
 
             if (parts.size() < 2) {
@@ -135,10 +136,10 @@ public:
     std::pair<Tweening::Gradient, Tweening::Gradient> getGradients() const
     {
         return parseGradients(
-            getCmdOption("-v"),
-            getCmdOption("-h"),
-            getCmdOption("-r")
-        );
+                   getCmdOption("-v"),
+                   getCmdOption("-h"),
+                   getCmdOption("-r")
+               );
     }
 
     /**

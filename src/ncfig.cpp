@@ -26,7 +26,7 @@ auto help = "Usage: ncfig -f <font> [-v <gradient>] [-r <gradient>] [-h <gradien
             "Linear and vertical gradients can be combined (the two colors\n"
             "will be added together); radial gradients are exclusive.\n"sv;
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
     CmdLine opts(argc, argv);
 
@@ -47,7 +47,7 @@ int main(int argc, char **argv)
     }
 
     // Get gradients from command line options
-    auto [first, second] = opts.getGradients();
+    auto[first, second] = opts.getGradients();
 
     // Get the text to display
     std::string text = opts.getText();

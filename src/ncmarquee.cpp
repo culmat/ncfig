@@ -40,7 +40,7 @@ auto help = "Usage: ncmarquee -f <font> [-v <gradient>] [-h <gradient>] [-r <gra
             "\n"
             "Creates a full-screen marquee animation. Press any key to exit.\n"sv;
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
     CmdLine opts(argc, argv);
 
@@ -63,6 +63,7 @@ int main(int argc, char **argv)
     // Parse speed option (default: 50ms)
     int delay_ms = 50;
     std::string speed_str = opts.getCmdOption("-s");
+
     if (!speed_str.empty()) {
         try {
             delay_ms = std::stoi(speed_str);
@@ -83,6 +84,7 @@ int main(int argc, char **argv)
     // Parse wave amplitude option (0 = disabled)
     int wave_amplitude = 0;
     std::string wave_str = opts.getCmdOption("-w");
+
     if (!wave_str.empty()) {
         try {
             wave_amplitude = std::stoi(wave_str);
@@ -95,7 +97,7 @@ int main(int argc, char **argv)
     }
 
     // Get gradients from command line options
-    auto [first, second] = opts.getGradients();
+    auto[first, second] = opts.getGradients();
 
     // Get the text to display
     std::string text = opts.getText();
@@ -133,7 +135,7 @@ int main(int argc, char **argv)
     }
 
     // Get the dimensions of the rendered text
-    auto [text_width, text_height] = font.getTextDimensions(text);
+    auto[text_width, text_height] = font.getTextDimensions(text);
 
     if (text_width == 0 || text_height == 0) {
         std::cerr << "Failed to render text or text has no dimensions.\n";

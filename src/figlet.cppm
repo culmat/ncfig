@@ -309,12 +309,14 @@ public:
 
         // Render text to strings
         auto lines = renderToStrings(text);
+
         if (lines.empty()) {
             return;
         }
 
         int text_height = lines.size();
         int text_width = 0;
+
         for (const auto& line : lines) {
             text_width = std::max(text_width, static_cast<int>(line.size()));
         }
@@ -327,20 +329,33 @@ public:
         if (first.type == Tweening::GradientType::Linear
                 && second.type == Tweening::GradientType::Linear) {
             // Parallel gradients
-            if (first.steps == 0) first.steps = gradient_height;
-            if (second.steps == 0) second.steps = gradient_width;
+            if (first.steps == 0) {
+                first.steps = gradient_height;
+            }
+
+            if (second.steps == 0) {
+                second.steps = gradient_width;
+            }
         } else if (first.type == Tweening::GradientType::Radial) {
             // Radial: width = gradient_width, height = gradient_height
-            if (first.width == 0) first.width = gradient_width;
-            if (first.height == 0) first.height = gradient_height;
+            if (first.width == 0) {
+                first.width = gradient_width;
+            }
+
+            if (first.height == 0) {
+                first.height = gradient_height;
+            }
         } else if (first.type == Tweening::GradientType::Linear
                    && first.orientation == Tweening::Orientation::Horizontal) {
             // Horizontal: steps = gradient width
-            if (first.steps == 0) first.steps = gradient_width;
+            if (first.steps == 0) {
+                first.steps = gradient_width;
+            }
         }
+
         // Vertical gradient: steps = gradient height (already handled by prepareGradients)
 
-        auto [one_d, two_d, max_width] = prepareGradients(lines, first, second);
+        auto[one_d, two_d, max_width] = prepareGradients(lines, first, second);
 
         int plane_height = plane->get_dim_y();
 
@@ -356,8 +371,10 @@ public:
             std::vector<float> col_center(text_width, 0.0f);
             {
                 auto char_ranges = buildCharRanges(text);
+
                 for (const auto& [s, e] : char_ranges) {
                     float center = (s + e - 1) * 0.5f;
+
                     for (int c = s; c < e && c < text_width; ++c) {
                         col_center[c] = center;
                     }
@@ -365,10 +382,11 @@ public:
             }
 
             int x_start = std::max(0, offset);
-            int x_end   = std::min(viewport_width, offset + text_width);
+            int x_end = std::min(viewport_width, offset + text_width);
 
             for (int screen_col = x_start; screen_col < x_end; ++screen_col) {
                 int text_col = screen_col - offset;
+
                 if (text_col >= text_width) {
                     continue;
                 }
@@ -377,8 +395,8 @@ public:
                 //         circular instances share the same continuous wave.
                 // -t on:  phase from text position → wave travels with the text.
                 float char_x = use_text_dimensions
-                    ? col_center[text_col]
-                    : static_cast<float>(offset) + col_center[text_col];
+                               ? col_center[text_col]
+                               : static_cast<float>(offset) + col_center[text_col];
                 float phase = wave_phase + char_x * wave_spatial_freq;
                 int y_off = static_cast<int>(std::round(wave_amplitude * std::sin(phase)));
                 int col_y = std::clamp(y + y_off, 0, std::max(0, plane_height - text_height));
@@ -387,6 +405,7 @@ public:
                     if (col_y + i >= plane_height) {
                         continue;
                     }
+
                     if (text_col >= (int)lines[i].size()) {
                         continue;
                     }
@@ -407,6 +426,7 @@ public:
                     plane->putc(col_y + i, screen_col, lines[i][text_col]);
                 }
             }
+
             return;
         }
 
@@ -447,7 +467,7 @@ public:
                                && i < (int)one_d.size()) {
                         color = one_d[i];
                     } else if (!one_d.empty() && (first.orientation == Tweening::Orientation::Horizontal
-                                || (first.type == Tweening::GradientType::Linear && second.type == Tweening::GradientType::Linear))
+                                                  || (first.type == Tweening::GradientType::Linear && second.type == Tweening::GradientType::Linear))
                                && color_x < (int)one_d.size()) {
                         color = one_d[color_x];
                     }
@@ -560,6 +580,7 @@ private:
                 w = static_cast<int>(it->second[0].size());
             } else {
                 auto space_it = glyphs.find(U' ');
+
                 if (space_it != glyphs.end() && !space_it->second.empty()) {
                     w = static_cast<int>(space_it->second[0].size());
                 }
@@ -648,12 +669,18 @@ private:
         } else if (first.type == Tweening::GradientType::Linear
                    && first.orientation == Tweening::Orientation::Vertical) {
             // One-dimensional gradient (vertical)
-            if (first.steps == 0) first.steps = lines.size();
+            if (first.steps == 0) {
+                first.steps = lines.size();
+            }
+
             one_d = Tweening::Linear(first);
         } else if (first.type == Tweening::GradientType::Linear
                    && first.orientation == Tweening::Orientation::Horizontal) {
             // One-dimensional gradient (horizontal)
-            if (first.steps == 0) first.steps = max_width;
+            if (first.steps == 0) {
+                first.steps = max_width;
+            }
+
             one_d = Tweening::Linear(first);
         }
 

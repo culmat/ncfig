@@ -13,10 +13,10 @@ private:
     static std::tuple<uint8_t, uint8_t, uint8_t> extractRGB(uint32_t color)
     {
         return std::tuple<uint8_t, uint8_t, uint8_t>(
-            (color >> 16) & 0xFF,
-            (color >> 8) & 0xFF,
-            color & 0xFF
-        );
+                   (color >> 16) & 0xFF,
+                   (color >> 8) & 0xFF,
+                   color & 0xFF
+               );
     }
 
 public:
@@ -62,8 +62,8 @@ public:
         }
 
         // Extract the RGB components of start and end
-        auto [r1, g1, b1] = extractRGB(gradient.start);
-        auto [r2, g2, b2] = extractRGB(gradient.end);
+        auto[r1, g1, b1] = extractRGB(gradient.start);
+        auto[r2, g2, b2] = extractRGB(gradient.end);
 
         result.reserve(gradient.steps);
 
@@ -82,7 +82,7 @@ public:
                 result.push_back(color);
             }
         } else {
-            auto [rc, gc, bc] = extractRGB(gradient.center);
+            auto[rc, gc, bc] = extractRGB(gradient.center);
 
             for (uint32_t i = 0; i < gradient.steps; ++i) {
                 float t = static_cast<float>(i) / (gradient.steps - 1);
@@ -128,8 +128,8 @@ public:
         for (uint32_t y = 0; y < vertical.steps; ++y) {
             for (uint32_t x = 0; x < horizontal.steps; ++x) {
                 // Extract RGB values from the two gradients
-                auto [r1, g1, b1] = extractRGB(gradientY[y]);
-                auto [r2, g2, b2] = extractRGB(gradientX[x]);
+                auto[r1, g1, b1] = extractRGB(gradientY[y]);
+                auto[r2, g2, b2] = extractRGB(gradientX[x]);
 
                 // Combine colors (here: addition modulo 256)
                 uint8_t r = (r1 + r2) % 256;
@@ -157,9 +157,9 @@ public:
                         );
 
         // Extract RGB values of start, center, and end colors
-        auto [r1, g1, b1] = extractRGB(gradient.start);
-        auto [r2, g2, b2] = extractRGB(gradient.end);
-        auto [rc, gc, bc] = extractRGB(gradient.center);
+        auto[r1, g1, b1] = extractRGB(gradient.start);
+        auto[r2, g2, b2] = extractRGB(gradient.end);
+        auto[rc, gc, bc] = extractRGB(gradient.center);
 
         // Create matrix
         std::vector<std::vector<uint32_t>> matrix(
