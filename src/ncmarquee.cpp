@@ -3,6 +3,7 @@
 #include <ncpp/NCKey.hh>
 
 #include <chrono>
+#include <cmath>
 #include <iostream>
 #include <string>
 #include <string_view>
@@ -16,17 +17,19 @@ import nctui.cmdline;
 import nctui.figlet;
 import nctui.tweening;
 
-auto help = "Usage: ncmarquee -f <font> [-v <gradient>] [-h <gradient>] [-r <gradient>] [-s <ms>] [-t] [-c] [text]\n"
+auto help = "Usage: ncmarquee -f <font> [-v <gradient>] [-h <gradient>] [-r <gradient>]\n"
+            "                           [-s <ms>] [-t] [-c] [-w <amplitude>] [text]\n"
             "\n"
-            "  -f <font>     : Specify the font file to use\n"
-            "  -v <gradient> : Specify the vertical color gradient\n"
-            "  -h <gradient> : Specify the horizontal color gradient\n"
-            "  -r <gradient> : Specify the radial color gradient\n"
-            "  -s <ms>       : Scroll speed in milliseconds (default: 50)\n"
-            "  -t            : Apply gradient to text dimensions\n"
-            "                  (default: apply to the visible area of the text)\n"
-            "  -c            : Circular mode (text is directly followed by itself)\n"
-            "  text          : The text to render (default: HELLO NOTCURSES!)\n"
+            "  -f <font>      : Specify the font file to use\n"
+            "  -v <gradient>  : Specify the vertical color gradient\n"
+            "  -h <gradient>  : Specify the horizontal color gradient\n"
+            "  -r <gradient>  : Specify the radial color gradient\n"
+            "  -s <ms>        : Scroll speed in milliseconds (default: 50)\n"
+            "  -t             : Apply gradient to text dimensions\n"
+            "                   (default: apply to the visible area of the text)\n"
+            "  -c             : Circular mode (text is directly followed by itself)\n"
+            "  -w <amplitude> : Sine wave vertical movement with the given amplitude in rows\n"
+            "  text           : The text to render (default: HELLO NOTCURSES!)\n"
             "\n"
             "Gradients are specified as pairs of hexadecimal colors, e.g.\n"
             "0xff0000:0x00ff00 for a red-to-green gradient. They can optionally have a center\n"
@@ -76,6 +79,20 @@ int main(int argc, char **argv)
 
     // Check if circular mode is enabled
     bool circular_mode = opts.cmdOptionExists("-c");
+
+    // Parse wave amplitude option (0 = disabled)
+    int wave_amplitude = 0;
+    std::string wave_str = opts.getCmdOption("-w");
+    if (!wave_str.empty()) {
+        try {
+            wave_amplitude = std::stoi(wave_str);
+        } catch (...) {
+            std::cerr << "Error: Invalid wave amplitude. Must be an integer.\n";
+            std::cout << help;
+
+            return EXIT_FAILURE;
+        }
+    }
 
     // Get gradients from command line options
     auto [first, second] = opts.getGradients();
@@ -134,10 +151,16 @@ int main(int argc, char **argv)
 
     // Animation loop
     bool running = true;
+    int frame_count = 0;
+
+    // Angular step per frame: 2π / 120 gives a ~6-second cycle at 50ms/frame
+    constexpr float wave_step = 2.0f * static_cast<float>(M_PI) / 120.0f;
 
     while (running) {
         // Clear the standard plane
         std_plane->erase();
+
+        float wave_phase = wave_step * frame_count;
 
         if (circular_mode) {
             // In circular mode, x_pos is where the first instance's x=0 is rendered
@@ -151,7 +174,9 @@ int main(int argc, char **argv)
                 second,
                 screen_width,
                 x_pos,
-                gradient_to_text
+                gradient_to_text,
+                wave_amplitude,
+                wave_phase
             );
 
             // Render additional instances to the right if they fit within viewport
@@ -165,7 +190,9 @@ int main(int argc, char **argv)
                     second,
                     screen_width,
                     offset,
-                    gradient_to_text
+                    gradient_to_text,
+                    wave_amplitude,
+                    wave_phase
                 );
             }
 
@@ -182,7 +209,9 @@ int main(int argc, char **argv)
                 second,
                 screen_width,
                 x_pos,
-                gradient_to_text
+                gradient_to_text,
+                wave_amplitude,
+                wave_phase
             );
         }
 
@@ -212,6 +241,8 @@ int main(int argc, char **argv)
         if (key != 0) {
             running = false;
         }
+
+        ++frame_count;
 
         // Add delay between frames
         std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));

@@ -39,7 +39,7 @@ Creates a full-screen marquee animation with FIGlet text. The text floats from r
 **Usage:**
 
 ```
-ncmarquee -f <font> [-v <gradient>] [-h <gradient>] [-r <gradient>] [-s <ms>] [text]
+ncmarquee -f <font> [-v <gradient>] [-h <gradient>] [-r <gradient>] [-s <ms>] [-t] [-c] [-w <amplitude>] [text]
 ```
 
 | Option | Description |
@@ -49,8 +49,9 @@ ncmarquee -f <font> [-v <gradient>] [-h <gradient>] [-r <gradient>] [-s <ms>] [t
 | `-h <gradient>` | Horizontal color gradient |
 | `-r <gradient>` | Radial color gradient |
 | `-s <ms>` | Scroll speed in milliseconds (default: 50) |
-| `-t` | Apply gradient to text dimensions (default: apply to the visible area of the text) |
+| `-t` | Apply gradient and wave to text dimensions (default: apply to the visible area) |
 | `-c` | Circular mode (text is directly followed by itself) |
+| `-w <amplitude>` | Sine wave vertical movement with the given amplitude in rows |
 | `text` | Text to render (default: `HELLO NOTCURSES!`) |
 
 **Examples:**
@@ -64,7 +65,24 @@ ncmarquee -f fonts/standard.flf -s 20 "HELLO WORLD"
 
 # With gradient
 ncmarquee -f fonts/banner.flf -h 0xff0000:0x0000ff -s 30 "NOTCURSES"
+
+# Sine wave with 4-row amplitude
+ncmarquee -f fonts/banner.flf -w 4 "WAVE"
+
+# Circular sine wave — seamless across repeated instances
+ncmarquee -f fonts/banner.flf -c -w 3 "LOOP"
 ```
+
+#### Sine wave mode (`-w`)
+
+The `-w <amplitude>` flag adds a vertical sine wave through the scrolling text. Each FIGlet character is displaced independently on the y-axis according to a continuous sine wave, so the text undulates as it scrolls. The amplitude is given in terminal rows.
+
+The `-t` flag controls the wave's frame of reference:
+
+- **`-t` off (default):** the wave is fixed in screen space — each screen column has a fixed y-offset at any moment in time, and the text scrolls through it. In circular mode (`-c`) this means adjacent instances share the same wave seamlessly, with no discontinuity at the wrap point.
+- **`-t` on:** the wave is fixed to the text — each character carries its own phase based on its position in the string, so the wave pattern travels with the text as it scrolls.
+
+Because terminal rows are discrete, the wave will always be a staircase of integer row steps between characters rather than a truly smooth curve. Larger amplitudes make individual steps proportionally smaller and less noticeable.
 
 ## Gradients
 

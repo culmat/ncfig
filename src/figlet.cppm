@@ -1,6 +1,8 @@
 module;
 
 #include <ncpp/Plane.hh>
+#include <algorithm>
+#include <cmath>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -296,7 +298,9 @@ public:
         Tweening::Gradient second,
         int viewport_width,
         int offset = 0,
-        bool use_text_dimensions = false
+        bool use_text_dimensions = false,
+        int wave_amplitude = 0,
+        float wave_phase = 0.0f
     ) const
     {
         if (height <= 0) {
@@ -338,7 +342,75 @@ public:
 
         auto [one_d, two_d, max_width] = prepareGradients(lines, first, second);
 
-        // Calculate visible portion
+        int plane_height = plane->get_dim_y();
+
+        if (wave_amplitude != 0 && offset < viewport_width && offset + text_width > 0) {
+            // Wave mode: render column by column, but snap each column's y offset to the
+            // center x of its parent character so the whole character moves as a unit.
+            // Without this, individual columns of the same glyph end up at different heights,
+            // tearing the character apart. The inter-character staircase is unavoidable (no
+            // sub-row precision in a terminal), but at least each glyph is internally coherent.
+            constexpr float wave_spatial_freq = 2.0f * 3.14159265f / 150.0f;
+
+            // Map every text column → its character's center x (in text coordinates).
+            std::vector<float> col_center(text_width, 0.0f);
+            {
+                auto char_ranges = buildCharRanges(text);
+                for (const auto& [s, e] : char_ranges) {
+                    float center = (s + e - 1) * 0.5f;
+                    for (int c = s; c < e && c < text_width; ++c) {
+                        col_center[c] = center;
+                    }
+                }
+            }
+
+            int x_start = std::max(0, offset);
+            int x_end   = std::min(viewport_width, offset + text_width);
+
+            for (int screen_col = x_start; screen_col < x_end; ++screen_col) {
+                int text_col = screen_col - offset;
+                if (text_col >= text_width) {
+                    continue;
+                }
+
+                // -t off: phase from screen position → wave is fixed in screen space,
+                //         circular instances share the same continuous wave.
+                // -t on:  phase from text position → wave travels with the text.
+                float char_x = use_text_dimensions
+                    ? col_center[text_col]
+                    : static_cast<float>(offset) + col_center[text_col];
+                float phase = wave_phase + char_x * wave_spatial_freq;
+                int y_off = static_cast<int>(std::round(wave_amplitude * std::sin(phase)));
+                int col_y = std::clamp(y + y_off, 0, std::max(0, plane_height - text_height));
+
+                for (int i = 0; i < text_height; ++i) {
+                    if (col_y + i >= plane_height) {
+                        continue;
+                    }
+                    if (text_col >= (int)lines[i].size()) {
+                        continue;
+                    }
+
+                    uint32_t color = 0xFFFFFF;
+                    int color_x = use_text_dimensions ? text_col : screen_col;
+
+                    if (!two_d.empty() && i < (int)two_d.size() && color_x < (int)two_d[i].size()) {
+                        color = two_d[i][color_x];
+                    } else if (!one_d.empty() && first.orientation == Tweening::Orientation::Vertical
+                               && i < (int)one_d.size()) {
+                        color = one_d[i];
+                    } else if (!one_d.empty() && color_x < (int)one_d.size()) {
+                        color = one_d[color_x];
+                    }
+
+                    plane->set_fg_rgb(color);
+                    plane->putc(col_y + i, screen_col, lines[i][text_col]);
+                }
+            }
+            return;
+        }
+
+        // Normal mode: render row by row.
         int text_end_pos = offset + text_width;
         int visible_width = 0;
         int line_offset = 0;
@@ -350,7 +422,7 @@ public:
 
         // Render each line
         for (int i = 0; i < text_height; ++i) {
-            if (y + i < 0 || y + i >= plane->get_dim_y()) {
+            if (y + i < 0 || y + i >= plane_height) {
                 continue;
             }
 
@@ -471,6 +543,33 @@ private:
         }
 
         return codepoints;
+    }
+
+    // Returns {start_col, end_col} for every character in the rendered text.
+    std::vector<std::pair<int, int>> buildCharRanges(std::string_view sv) const
+    {
+        std::vector<std::pair<int, int>> ranges;
+        auto codepoints = decodeUtf8(sv);
+        int x = 0;
+
+        for (char32_t cp : codepoints) {
+            int w = 0;
+            auto it = glyphs.find(cp);
+
+            if (it != glyphs.end() && !it->second.empty()) {
+                w = static_cast<int>(it->second[0].size());
+            } else {
+                auto space_it = glyphs.find(U' ');
+                if (space_it != glyphs.end() && !space_it->second.empty()) {
+                    w = static_cast<int>(space_it->second[0].size());
+                }
+            }
+
+            ranges.push_back({x, x + w});
+            x += w;
+        }
+
+        return ranges;
     }
 
     std::vector<std::string> renderToStrings(const std::string_view text, bool append_nl = false) const
