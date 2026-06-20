@@ -19,8 +19,9 @@ auto help = "Usage: ncfig -f <font> [-v <gradient>] [-r <gradient>] [-h <gradien
             "  -r <gradient>  : Specify the radial color gradient\n"
             "  text           : The text to render\n"
             "\n"
-            "Gradients are specified as pairs of hexadecimal colors, e.g. \n"
-            "0xff0000:0x00ff00 for a red-to-green gradient.\n"
+            "Gradients are specified as pairs of hexadecimal colors, e.g.\n"
+            "0xff0000:0x00ff00 for a red-to-green gradient. They can optionally have a center\n"
+            "color, e.g. 0xff0000:0x00ff00:0x0000ff for a red-to-green-to-blue gradient.\n"
             "\n"
             "Linear and vertical gradients can be combined (the two colors\n"
             "will be added together); radial gradients are exclusive.\n"sv;

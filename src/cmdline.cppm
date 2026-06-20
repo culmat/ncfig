@@ -1,6 +1,6 @@
 module;
 
-#include <algorithm>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -66,33 +66,63 @@ public:
         Tweening::Gradient first{};
         Tweening::Gradient second{};
 
-        std::size_t pos;
+        // Helper lambda to parse a gradient sparseGradientStringtring into start, center, end
+        auto parseGradientString = [](
+            const std::string& gradient_str,
+            Tweening::Gradient& grad,
+            Tweening::GradientType type,
+            Tweening::Orientation orient=Tweening::Orientation::Unconfigured)
+        {
+            if (gradient_str.empty()) {
+                return;
+            }
 
-        if (!vgradient_str.empty() && (pos = vgradient_str.find(":")) != std::string::npos) {
-            first.start = std::stoul(vgradient_str.substr(0, pos), nullptr, 16);
-            first.end = std::stoul(vgradient_str.substr(pos + 1), nullptr, 16);
+            // Split by ':'
+            std::vector<std::string> parts;
+            std::size_t start = 0;
+            std::size_t pos;
+            while ((pos = gradient_str.find(":", start)) != std::string::npos) {
+                parts.push_back(gradient_str.substr(start, pos - start));
+                start = pos + 1;
+            }
+            parts.push_back(gradient_str.substr(start));
 
-            first.type = Tweening::GradientType::Linear;
-            first.orientation = Tweening::Orientation::Vertical;
-        }
+            if (parts.size() < 2) {
+                throw std::invalid_argument("Gradient must have at least 2 colors separated by ':'");
+            }
 
-        if (!hgradient_str.empty() && (pos = hgradient_str.find(":")) != std::string::npos) {
-            // when both v and h gradients are specified, use second for vertical
+            // First always goes to start, last always goes to end
+            grad.start = std::stoul(parts[0], nullptr, 16);
+            grad.end = std::stoul(parts.back(), nullptr, 16);
+
+            // If there are exactly 3 parts, the middle one goes to center
+            if (parts.size() == 3) {
+                grad.center = std::stoul(parts[1], nullptr, 16);
+            } else {
+                grad.center = 0; // No center color
+            }
+
+            grad.type = type;
+            grad.orientation = orient;
+        };
+
+        parseGradientString(
+            vgradient_str,
+            first,
+            Tweening::GradientType::Linear,
+            Tweening::Orientation::Vertical);
+
+        if (!hgradient_str.empty()) {
+            // when both v and h gradients are specified, use second for horizontal
             Tweening::Gradient &dest = vgradient_str.empty() ? first : second;
-
-            dest.start = std::stoul(hgradient_str.substr(0, pos), nullptr, 16);
-            dest.end = std::stoul(hgradient_str.substr(pos + 1), nullptr, 16);
-
-            dest.type = Tweening::GradientType::Linear;
-            dest.orientation = Tweening::Orientation::Horizontal;
+            parseGradientString(
+                hgradient_str,
+                dest,
+                Tweening::GradientType::Linear,
+                Tweening::Orientation::Horizontal);
         }
 
-        if (!rgradient_str.empty() && (pos = rgradient_str.find(":")) != std::string::npos) {
-            first.start = std::stoul(rgradient_str.substr(0, pos), nullptr, 16);
-            first.end = std::stoul(rgradient_str.substr(pos + 1), nullptr, 16);
-
-            first.type = Tweening::GradientType::Radial;
-        }
+        parseGradientString(rgradient_str, first, Tweening::GradientType::Radial);
 
         return {first, second};
     }

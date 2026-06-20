@@ -75,7 +75,7 @@ Gradients are specified as pairs of hexadecimal colors separated by a colon:
 - `0xff00ff` = Magenta
 - `0x00ffff` = Cyan
 
-Example: `0xff0000:0x0000ff` creates a red-to-blue gradient.
+Example: `0xff0000:0x0000ff` creates a red-to-blue gradient. Two colors are mandatory, but you can optionally add a third color as center color, e.g. e.g. 0xff0000:0x00ff00:0x0000ff for a red-to-green-to-blue gradient.
 
 ## Getting Fonts
 

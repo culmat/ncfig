@@ -37,6 +37,7 @@ public:
         Orientation orientation;
 
         std::uint32_t start;
+        std::uint32_t center;
         std::uint32_t end;
 
         // linear interpolation steps
@@ -66,18 +67,43 @@ public:
 
         result.reserve(gradient.steps);
 
-        for (uint32_t i = 0; i < gradient.steps; ++i) {
-            // Calculate the interpolation factor (0.0 to 1.0)
-            float t = static_cast<float>(i) / (gradient.steps - 1);
+        if (!gradient.center) {
+            for (uint32_t i = 0; i < gradient.steps; ++i) {
+                // Calculate the interpolation factor (0.0 to 1.0)
+                float t = static_cast<float>(i) / (gradient.steps - 1);
 
-            // Interpolate each channel
-            uint8_t r = static_cast<uint8_t>(r1 + (r2 - r1) * t);
-            uint8_t g = static_cast<uint8_t>(g1 + (g2 - g1) * t);
-            uint8_t b = static_cast<uint8_t>(b1 + (b2 - b1) * t);
+                // Interpolate each channel
+                uint8_t r = static_cast<uint8_t>(r1 + (r2 - r1) * t);
+                uint8_t g = static_cast<uint8_t>(g1 + (g2 - g1) * t);
+                uint8_t b = static_cast<uint8_t>(b1 + (b2 - b1) * t);
 
-            // Combine the channels into a uint32_t value
-            uint32_t color = (r << 16) | (g << 8) | b;
-            result.push_back(color);
+                // Combine the channels into a uint32_t value
+                uint32_t color = (r << 16) | (g << 8) | b;
+                result.push_back(color);
+            }
+        } else {
+            auto [rc, gc, bc] = extractRGB(gradient.center);
+
+            for (uint32_t i = 0; i < gradient.steps; ++i) {
+                float t = static_cast<float>(i) / (gradient.steps - 1);
+                uint8_t r, g, b;
+
+                if (t <= 0.5f) {
+                    // start → center (t = 0 to 0.5)
+                    float t_half = t * 2.0f;
+                    r = static_cast<uint8_t>(r1 + (rc - r1) * t_half);
+                    g = static_cast<uint8_t>(g1 + (gc - g1) * t_half);
+                    b = static_cast<uint8_t>(b1 + (bc - b1) * t_half);
+                } else {
+                    // center → end (t = 0.5 to 1)
+                    float t_half = (t - 0.5f) * 2.0f;
+                    r = static_cast<uint8_t>(rc + (r2 - rc) * t_half);
+                    g = static_cast<uint8_t>(gc + (g2 - gc) * t_half);
+                    b = static_cast<uint8_t>(bc + (b2 - bc) * t_half);
+                }
+
+                result.push_back((r << 16) | (g << 8) | b);
+            }
         }
 
         return result;
@@ -130,9 +156,10 @@ public:
                             std::pow(std::max(centerY, gradient.height - 1 - centerY), 2)
                         );
 
-        // Extract RGB values of start and end colors
+        // Extract RGB values of start, center, and end colors
         auto [r1, g1, b1] = extractRGB(gradient.start);
         auto [r2, g2, b2] = extractRGB(gradient.end);
+        auto [rc, gc, bc] = extractRGB(gradient.center);
 
         // Create matrix
         std::vector<std::vector<uint32_t>> matrix(
@@ -151,9 +178,29 @@ public:
                 float t = std::min(dist / maxDist, 1.0f);
 
                 // Interpolate color
-                uint8_t r = static_cast<uint8_t>(r1 + (r2 - r1) * t);
-                uint8_t g = static_cast<uint8_t>(g1 + (g2 - g1) * t);
-                uint8_t b = static_cast<uint8_t>(b1 + (b2 - b1) * t);
+                uint8_t r, g, b;
+
+                if (!gradient.center) {
+                    // Two-color gradient: start to end
+                    r = static_cast<uint8_t>(r1 + (r2 - r1) * t);
+                    g = static_cast<uint8_t>(g1 + (g2 - g1) * t);
+                    b = static_cast<uint8_t>(b1 + (b2 - b1) * t);
+                } else {
+                    // Three-color gradient: start to center to end
+                    if (t <= 0.5f) {
+                        // start -> center (t = 0 to 0.5)
+                        float t_half = t * 2.0f;
+                        r = static_cast<uint8_t>(r1 + (rc - r1) * t_half);
+                        g = static_cast<uint8_t>(g1 + (gc - g1) * t_half);
+                        b = static_cast<uint8_t>(b1 + (bc - b1) * t_half);
+                    } else {
+                        // center -> end (t = 0.5 to 1)
+                        float t_half = (t - 0.5f) * 2.0f;
+                        r = static_cast<uint8_t>(rc + (r2 - rc) * t_half);
+                        g = static_cast<uint8_t>(gc + (g2 - gc) * t_half);
+                        b = static_cast<uint8_t>(bc + (b2 - bc) * t_half);
+                    }
+                }
 
                 matrix[i][j] = (r << 16) | (g << 8) | b;
             }
