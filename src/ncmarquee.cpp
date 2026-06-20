@@ -7,6 +7,7 @@
 #include <string>
 #include <string_view>
 #include <thread>
+#include <vector>
 
 using namespace std::string_view_literals;
 using namespace std::chrono_literals;
@@ -15,14 +16,16 @@ import nctui.cmdline;
 import nctui.figlet;
 import nctui.tweening;
 
-auto help = "Usage: ncmarquee -f <font> [-v <gradient>] [-h <gradient>] [-r <gradient>] [-s <ms>] [text]\n"
+auto help = "Usage: ncmarquee -f <font> [-v <gradient>] [-h <gradient>] [-r <gradient>] [-s <ms>] [-t] [text]\n"
             "\n"
-            "  -f <font>      : Specify the font file to use\n"
-            "  -v <gradient>  : Specify the vertical color gradient\n"
-            "  -h <gradient>  : Specify the horizontal color gradient\n"
-            "  -r <gradient>  : Specify the radial color gradient\n"
+            "  -f <font>     : Specify the font file to use\n"
+            "  -v <gradient> : Specify the vertical color gradient\n"
+            "  -h <gradient> : Specify the horizontal color gradient\n"
+            "  -r <gradient> : Specify the radial color gradient\n"
             "  -s <ms>       : Scroll speed in milliseconds (default: 50)\n"
-            "  text           : The text to render (default: HELLO NOTCURSES!)\n"
+            "  -t            : Apply gradient to text dimensions\n"
+            "                  (default: apply to the visible area of the text)\n"
+            "  text          : The text to render (default: HELLO NOTCURSES!)\n"
             "\n"
             "Gradients are specified as pairs of hexadecimal colors, e.g.\n"
             "0xff0000:0x00ff00 for a red-to-green gradient. They can optionally have a center\n"
@@ -66,6 +69,9 @@ int main(int argc, char **argv)
             return EXIT_FAILURE;
         }
     }
+
+    // Check if gradient should be applied to text dimensions
+    bool gradient_to_text = opts.cmdOptionExists("-t");
 
     // Get gradients from command line options
     auto [first, second] = opts.getGradients();
@@ -112,20 +118,6 @@ int main(int argc, char **argv)
     // Calculate vertical position to center the text
     int y_pos = (screen_height - text_height) / 2;
 
-    // Create the content plane with exact text dimensions
-    // The plane will be positioned at (y_pos, x_pos) where x_pos will change
-    ncpp::Plane content_plane{
-        *std_plane,
-        text_height,
-        text_width,
-        y_pos,
-        0  // Initial x position (will be updated)
-    };
-
-    // Render the text once on the content plane at position (0, 0)
-    // We render it once and then just move the plane
-    font.render(&content_plane, 0, 0, text, first, second);
-
     // Position for marquee animation
     // Start off-screen to the right
     int x_pos = screen_width;
@@ -134,8 +126,21 @@ int main(int argc, char **argv)
     bool running = true;
 
     while (running) {
-        // Move the content plane to the current position
-        content_plane.move(y_pos, x_pos);
+        // Clear the standard plane
+        std_plane->erase();
+
+        // Use the new renderToViewport method
+        font.renderToViewport(
+            std_plane,
+            y_pos,
+            x_pos,
+            text,
+            first,
+            second,
+            screen_width,
+            x_pos,
+            gradient_to_text
+        );
 
         // Render the frame
         nc.render();

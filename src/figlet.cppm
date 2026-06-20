@@ -274,6 +274,119 @@ public:
         }
     }
 
+    /**
+     * @brief Renders a portion of text onto a plane with gradients applied to viewport or text dimensions.
+     * This is useful for marquee-style rendering where text scrolls across a fixed viewport.
+     * @param plane The target Notcurses C++ plane.
+     * @param y Top-left Y row coordinate.
+     * @param x Top-left X column coordinate (starting position on plane).
+     * @param text String view containing UTF-8 input text.
+     * @param first First gradient for the text.
+     * @param second Second gradient for the text.
+     * @param viewport_width Width of the viewport.
+     * @param offset Horizontal offset into the text (for scrolling).
+     * @param use_text_dimensions If true, use text dimensions for gradients; otherwise use viewport width x text height.
+     */
+    void renderToViewport(
+        ncpp::Plane* plane,
+        int y,
+        int x,
+        std::string_view text,
+        Tweening::Gradient first,
+        Tweening::Gradient second,
+        int viewport_width,
+        int offset = 0,
+        bool use_text_dimensions = false
+    ) const
+    {
+        if (height <= 0) {
+            return;
+        }
+
+        // Render text to strings
+        auto lines = renderToStrings(text);
+        if (lines.empty()) {
+            return;
+        }
+
+        int text_height = lines.size();
+        int text_width = 0;
+        for (const auto& line : lines) {
+            text_width = std::max(text_width, static_cast<int>(line.size()));
+        }
+
+        // Prepare gradients
+        // If use_text_dimensions, use text dimensions; otherwise use viewport width x text height
+        int gradient_width = use_text_dimensions ? text_width : viewport_width;
+        int gradient_height = text_height;
+
+        if (first.type == Tweening::GradientType::Linear
+                && second.type == Tweening::GradientType::Linear) {
+            // Parallel gradients
+            if (first.steps == 0) first.steps = gradient_height;
+            if (second.steps == 0) second.steps = gradient_width;
+        } else if (first.type == Tweening::GradientType::Radial) {
+            // Radial: width = gradient_width, height = gradient_height
+            if (first.width == 0) first.width = gradient_width;
+            if (first.height == 0) first.height = gradient_height;
+        } else if (first.type == Tweening::GradientType::Linear
+                   && first.orientation == Tweening::Orientation::Horizontal) {
+            // Horizontal: steps = gradient width
+            if (first.steps == 0) first.steps = gradient_width;
+        }
+        // Vertical gradient: steps = gradient height (already handled by prepareGradients)
+
+        auto [one_d, two_d, max_width] = prepareGradients(lines, first, second);
+
+        // Calculate visible portion
+        int text_end_pos = offset + text_width;
+        int visible_width = 0;
+        int line_offset = 0;
+
+        if (offset < viewport_width && text_end_pos > 0) {
+            line_offset = std::max(0, -offset);
+            visible_width = std::min(text_width - line_offset, viewport_width - std::max(0, offset));
+        }
+
+        // Render each line
+        for (int i = 0; i < text_height; ++i) {
+            if (y + i < 0 || y + i >= plane->get_dim_y()) {
+                continue;
+            }
+
+            if (visible_width > 0) {
+                int screen_x = std::max(0, offset);
+
+                for (int j = 0; j < visible_width; ++j) {
+                    int text_x = line_offset + j;
+                    int screen_j = screen_x + j;
+
+                    if (text_x >= (int)lines[i].size()) {
+                        break;
+                    }
+
+                    // Get color based on position
+                    uint32_t color = 0xFFFFFF; // Default white
+                    int color_x = use_text_dimensions ? text_x : screen_j;
+
+                    if (!two_d.empty() && i < (int)two_d.size() && color_x < (int)two_d[i].size()) {
+                        color = two_d[i][color_x];
+                    } else if (!one_d.empty() && first.orientation == Tweening::Orientation::Vertical
+                               && i < (int)one_d.size()) {
+                        color = one_d[i];
+                    } else if (!one_d.empty() && (first.orientation == Tweening::Orientation::Horizontal
+                                || (first.type == Tweening::GradientType::Linear && second.type == Tweening::GradientType::Linear))
+                               && color_x < (int)one_d.size()) {
+                        color = one_d[color_x];
+                    }
+
+                    plane->set_fg_rgb(color);
+                    plane->putc(y + i, screen_x + j, lines[i][text_x]);
+                }
+            }
+        }
+    }
+
     int getHeight() const
     {
         return height;
