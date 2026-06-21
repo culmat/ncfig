@@ -1,10 +1,8 @@
 #!/bin/bash -e
 
-OPTIONS="--style=1tbs --break-blocks --pad-oper --pad-comma --pad-header --unpad-paren --unpad-brackets --add-braces --squeeze-ws --suffix=none"
-
 # Find modified C++ source files, exit if none found
 FILES=`git diff --cached --name-only --diff-filter=ACMR | grep -E "\.(cpp|cppm)$"`|| exit 0
 
 for FILE in $FILES; do
-	/usr/bin/astyle $OPTIONS $FILE
+	/usr/bin/astyle --project $FILE
 done
