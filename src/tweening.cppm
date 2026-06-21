@@ -1,3 +1,12 @@
+/**
+ * @file tweening.cppm
+ * @brief Color gradient generation module for NotCurses applications.
+ *
+ * This module provides functionality for generating linear, radial, and parallel
+ * color gradients for use with NotCurses rendering. Colors are represented
+ * as 32-bit values in 0xRRGGBB format.
+ */
+
 module;
 
 #include <cmath>
@@ -6,10 +15,22 @@ module;
 
 export module nctui.tweening;
 
+/**
+ * @brief Provides color gradient generation for NotCurses terminal rendering.
+ *
+ * The Tweening class contains static methods for generating various types of
+ * color gradients. All methods work with colors in 0xRRGGBB format (32-bit
+ * unsigned integers where bits 16-23 are red, 8-15 are green, and 0-7 are blue).
+ */
 export class Tweening
 {
 private:
-    // Extract RGB values from a color
+    /**
+     * @brief Extracts RGB components from a 32-bit color value.
+     *
+     * @param color The color value in 0xRRGGBB format.
+     * @return A tuple containing (red, green, blue) components as uint8_t values.
+     */
     static std::tuple<uint8_t, uint8_t, uint8_t> extractRGB(uint32_t color)
     {
         return std::tuple<uint8_t, uint8_t, uint8_t>(
@@ -20,34 +41,58 @@ private:
     }
 
 public:
+    /**
+     * @brief Defines the type of gradient to generate.
+     */
     enum class GradientType {
-        Unconfigured,
-        Linear,
-        Radial,
+        Unconfigured, ///< Default/unset gradient type.
+        Linear,       ///< Linear gradient (1D color transition).
+        Radial,       ///< Radial gradient (circular color transition from center).
     };
 
+    /**
+     * @brief Defines the orientation of a linear gradient.
+     */
     enum class Orientation {
-        Unconfigured,
-        Horizontal,
-        Vertical,
+        Unconfigured, ///< Default/unset orientation.
+        Horizontal,   ///< Gradient progresses left to right.
+        Vertical,     ///< Gradient progresses top to bottom.
     };
 
+    /**
+     * @brief Configuration structure for defining a gradient.
+     *
+     * The center color field serves dual purposes:
+     * - When center is 0: Two-color gradient (start to end)
+     * - When center is non-zero: Three-color gradient (start to center to end)
+     */
     struct Gradient {
-        GradientType type;
-        Orientation orientation;
+        GradientType type;       ///< Type of gradient (Linear or Radial).
+        Orientation orientation; ///< Direction of gradient (Horizontal or Vertical).
 
-        std::uint32_t start;
-        std::uint32_t center;
-        std::uint32_t end;
+        std::uint32_t start;  ///< Starting color in 0xRRGGBB format.
+        std::uint32_t center; ///< Center/middle color in 0xRRGGBB format (optional).
+        std::uint32_t end;    ///< Ending color in 0xRRGGBB format.
 
-        // linear interpolation steps
-        std::size_t steps;
-
-        // radial interpolation steps
-        std::size_t width;
-        std::size_t height;
+        std::size_t steps;   ///< Number of interpolation steps (for linear gradients).
+        std::size_t width;   ///< Width in pixels (for radial gradients).
+        std::size_t height;  ///< Height in pixels (for radial gradients).
     };
 
+    /**
+     * @brief Generates a linear color gradient as a 1D vector of colors.
+     *
+     * Generates a sequence of colors by interpolating between start and end
+     * colors. If a center color is provided (non-zero), creates a three-color
+     * gradient (start to center to end) with the center at the midpoint.
+     *
+     * @param gradient The gradient configuration.
+     * @return A vector of interpolated colors in 0xRRGGBB format.
+     * @retval Empty vector if gradient.steps is 0.
+     * @retval Vector with only start color if gradient.steps is 1.
+     *
+     * @note Uses linear interpolation for each RGB channel independently.
+     */
     static std::vector<uint32_t> Linear(Gradient gradient)
     {
         std::vector<uint32_t> result;
@@ -109,6 +154,19 @@ public:
         return result;
     }
 
+    /**
+     * @brief Generates a 2D color matrix by combining vertical and horizontal gradients.
+     *
+     * Creates a 2D matrix where each pixel is computed by adding the RGB channels
+     * of the corresponding vertical and horizontal gradient colors (modulo 256).
+     *
+     * @param vertical The gradient configuration for the vertical direction.
+     * @param horizontal The gradient configuration for the horizontal direction.
+     * @return A 2D vector (matrix) of colors with dimensions vertical.steps x horizontal.steps.
+     *
+     * @note Color combination formula: result = (vertical_color + horizontal_color) % 256
+     *       for each RGB channel independently.
+     */
     static std::vector<std::vector<uint32_t>> Parallel(
         Gradient vertical,
         Gradient horizontal)
@@ -144,6 +202,21 @@ public:
         return matrix;
     }
 
+    /**
+     * @brief Generates a radial (circular) color gradient as a 2D matrix.
+     *
+     * Creates a circular gradient radiating outward from the center of the
+     * matrix. The start color is at the center, and the end color is at the
+     * edges.  If a center color is provided (non-zero), creates a three-color
+     * gradient with the center color at 50% radius.
+     *
+     * @param gradient The gradient configuration with width and height defining output dimensions.
+     * @return A 2D vector (matrix) of colors with dimensions gradient.height x gradient.width.
+     *
+     * @note The gradient uses Euclidean distance from the center, normalized to [0, 1].
+     *       For three-color gradients, the transition is: start (center) to center (50% radius)
+     *       to end (edges).
+     */
     static std::vector<std::vector<uint32_t>> radial(Gradient gradient)
     {
         // Calculate center

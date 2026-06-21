@@ -22,6 +22,7 @@ public:
 
     /**
      * @brief Loads and parses a standard FIGlet font (.flf) file.
+     *
      * @param filename Path to the .flf file.
      * @return true if successfully loaded and parsed, false otherwise.
      */
@@ -177,6 +178,7 @@ public:
 
     /**
      * @brief Renders text onto an ncpp::Plane using a horizontal full-width alignment.
+     *
      * @param plane The target Notcurses C++ plane.
      * @param y Top-left Y row coordinate.
      * @param x Top-left X column coordinate.
@@ -230,6 +232,7 @@ public:
 
     /**
      * @brief Renders text onto an ncpp::Plane using a horizontal full-width alignment.
+     *
      * @param plane The target Notcurses C++ plane.
      * @param text String view containing UTF-8 input text.
      * @param first First gradient for the text.
@@ -278,7 +281,9 @@ public:
 
     /**
      * @brief Renders a portion of text onto a plane with gradients applied to viewport or text dimensions.
+     *
      * This is useful for marquee-style rendering where text scrolls across a fixed viewport.
+     *
      * @param plane The target Notcurses C++ plane.
      * @param y Top-left Y row coordinate.
      * @param x Top-left X column coordinate (starting position on plane).
@@ -288,6 +293,8 @@ public:
      * @param viewport_width Width of the viewport.
      * @param offset Horizontal offset into the text (for scrolling).
      * @param use_text_dimensions If true, use text dimensions for gradients; otherwise use viewport width x text height.
+     * @param wave_amplitude Amplitude of the wave effect (default 0).
+     * @param wave_phase Phase of the wave effect (default 0.0f).
      */
     void renderToViewport(
         ncpp::Plane* plane,

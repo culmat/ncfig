@@ -13,9 +13,34 @@ export module nctui.cmdline;
 
 import nctui.tweening;
 
+/**
+ * @file cmdline.cppm
+ * @brief Command line argument parsing module for ncfig.
+ *
+ * This module provides the CmdLine class for parsing command-line arguments
+ * and options, with special support for gradient color parsing.
+ */
+
+/**
+ * @class CmdLine
+ * @brief Parses and manages command-line arguments and options.
+ *
+ * The CmdLine class provides functionality to parse command-line arguments,
+ * extract option values, check for option existence, and parse gradient color
+ * specifications from command-line options.
+ */
 export class CmdLine
 {
 public:
+    /**
+     * @brief Constructs a CmdLine object and parses command-line arguments.
+     *
+     * @param argc Reference to the argument count from main().
+     * @param argv The argument vector from main().
+     *
+     * The constructor stores all command-line arguments (skipping argv[0]) and
+     * immediately parses them into options and positional arguments.
+     */
     CmdLine(int& argc, char** argv)
     {
         for (int i = 1; i < argc; ++i) {
@@ -25,6 +50,14 @@ public:
         parse();
     }
 
+    /**
+     * @brief Gets the value of a command-line option.
+     *
+     * @param option The option name to look up (e.g., "-v", "--verbose").
+     * @return The value associated with the option, or an empty string if not found.
+     *
+     * For options without values (flags), returns an empty string.
+     */
     const std::string& getCmdOption(const std::string &option) const
     {
         auto it = option_values.find(option);
@@ -37,6 +70,12 @@ public:
         return empty_string;
     }
 
+    /**
+     * @brief Checks if a command-line option exists.
+     *
+     * @param option The option name to check (e.g., "-v", "--verbose").
+     * @return true if the option was specified on the command line, false otherwise.
+     */
     bool cmdOptionExists(const std::string &option) const
     {
         return option_values.find(option) != option_values.end();
@@ -44,6 +83,7 @@ public:
 
     /**
      * @brief Gets the positional argument (text to display).
+     *
      * @return The last non-option argument, or empty string if none found.
      */
     const std::string& getText() const
@@ -53,6 +93,7 @@ public:
 
     /**
      * @brief Parses gradient options and returns configured Gradient structs.
+     *
      * @param vgradient_str Value from -v option (vertical gradient)
      * @param hgradient_str Value from -h option (horizontal gradient)
      * @param rgradient_str Value from -r option (radial gradient)
@@ -130,7 +171,9 @@ public:
 
     /**
      * @brief Parses gradient options from the command line and returns configured Gradient structs.
+     *
      * Uses getCmdOption to fetch -v, -h, -r values.
+     *
      * @return A pair of (first, second) Gradient structs ready for use with FigletFont::render()
      */
     std::pair<Tweening::Gradient, Tweening::Gradient> getGradients() const
@@ -144,6 +187,7 @@ public:
 
     /**
      * @brief Validates that radial gradients are not combined with other gradients.
+     *
      * @return true if the gradient combination is valid, false otherwise.
      */
     bool validateGradients() const
@@ -156,6 +200,14 @@ public:
     }
 
 private:
+    /**
+     * @brief Parses the stored tokens into options and positional arguments.
+     *
+     * This method processes the tokens vector and populates the option_values map
+     * and text member variable. Options are identified by a leading '-' character.
+     * Option values are the following non-option tokens. All non-option tokens
+     * are collected into the text member as a space-separated string.
+     */
     void parse()
     {
         for (size_t i = 0; i < tokens.size(); ++i) {
@@ -195,7 +247,7 @@ private:
         }
     }
 
-    std::vector<std::string> tokens;
-    std::unordered_map<std::string, std::string> option_values;
-    std::string text;
+    std::vector<std::string> tokens; ///< Storage for all command-line argument tokens.
+    std::unordered_map<std::string, std::string> option_values; ///< Map of option names to their values.
+    std::string text;                ///< Collected positional arguments as a single string.
 };
