@@ -336,31 +336,16 @@ public:
         if (first.type == Tweening::GradientType::Linear
                 && second.type == Tweening::GradientType::Linear) {
             // Parallel gradients
-            if (first.steps == 0) {
-                first.steps = gradient_height;
-            }
-
-            if (second.steps == 0) {
-                second.steps = gradient_width;
-            }
+            first.steps = gradient_height;
+            second.steps = gradient_width;
         } else if (first.type == Tweening::GradientType::Radial) {
-            // Radial: width = gradient_width, height = gradient_height
-            if (first.width == 0) {
-                first.width = gradient_width;
-            }
-
-            if (first.height == 0) {
-                first.height = gradient_height;
-            }
+            first.width = gradient_width;
+            first.height = gradient_height;
         } else if (first.type == Tweening::GradientType::Linear
                    && first.orientation == Tweening::Orientation::Horizontal) {
             // Horizontal: steps = gradient width
-            if (first.steps == 0) {
-                first.steps = gradient_width;
-            }
+            first.steps = gradient_width;
         }
-
-        // Vertical gradient: steps = gradient height (already handled by prepareGradients)
 
         auto[one_d, two_d, max_width] = prepareGradients(lines, first, second);
 
@@ -420,12 +405,12 @@ public:
                     uint32_t color = 0xFFFFFF;
                     int color_x = use_text_dimensions ? text_col : screen_col;
 
-                    if (!two_d.empty() && i < (int)two_d.size() && color_x < (int)two_d[i].size()) {
+                    if (i < (int)two_d.size() && color_x < (int)two_d[i].size()) {
                         color = two_d[i][color_x];
-                    } else if (!one_d.empty() && first.orientation == Tweening::Orientation::Vertical
+                    } else if (first.orientation == Tweening::Orientation::Vertical
                                && i < (int)one_d.size()) {
                         color = one_d[i];
-                    } else if (!one_d.empty() && color_x < (int)one_d.size()) {
+                    } else if (color_x < (int)one_d.size()) {
                         color = one_d[color_x];
                     }
 
@@ -468,12 +453,12 @@ public:
                     uint32_t color = 0xFFFFFF; // Default white
                     int color_x = use_text_dimensions ? text_x : screen_j;
 
-                    if (!two_d.empty() && i < (int)two_d.size() && color_x < (int)two_d[i].size()) {
+                    if (i < (int)two_d.size() && color_x < (int)two_d[i].size()) {
                         color = two_d[i][color_x];
-                    } else if (!one_d.empty() && first.orientation == Tweening::Orientation::Vertical
+                    } else if (first.orientation == Tweening::Orientation::Vertical
                                && i < (int)one_d.size()) {
                         color = one_d[i];
-                    } else if (!one_d.empty() && (first.orientation == Tweening::Orientation::Horizontal
+                    } else if ((first.orientation == Tweening::Orientation::Horizontal
                                                   || (first.type == Tweening::GradientType::Linear && second.type == Tweening::GradientType::Linear))
                                && color_x < (int)one_d.size()) {
                         color = one_d[color_x];
@@ -665,13 +650,21 @@ private:
                 && second.type == Tweening::GradientType::Linear) {
             // this combination is only supported for parallel linear
             // gradients, so we can ignore orientation
-            first.steps = lines.size();
-            second.steps = max_width;
+            if (first.steps == 0) {
+                first.steps = lines.size();
+            }
+            if (second.steps == 0) {
+                second.steps = max_width;
+            }
             two_d = Tweening::Parallel(first, second);
         } else if (first.type == Tweening::GradientType::Radial) {
             // Radial gradient
-            first.width = max_width;
-            first.height = lines.size();
+            if (first.width == 0) {
+                first.width = max_width;
+            }
+            if (first.height == 0) {
+                first.height = lines.size();
+            }
             two_d = Tweening::radial(first);
         } else if (first.type == Tweening::GradientType::Linear
                    && first.orientation == Tweening::Orientation::Vertical) {
