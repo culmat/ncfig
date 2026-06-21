@@ -118,7 +118,9 @@ int main(int argc, char** argv)
     }
 
     // Initialize NotCurses in full-screen mode (not CLI mode)
-    notcurses_options nc_opts{};
+    notcurses_options nc_opts{
+        .flags = NCOPTION_SUPPRESS_BANNERS
+    };
     auto nc = ncpp::NotCurses(nc_opts);
     ncpp::Plane* std_plane = nc.get_stdplane();
 
