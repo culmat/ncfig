@@ -331,7 +331,7 @@ public:
         // Prepare gradients
         // If use_text_dimensions, use text dimensions; otherwise use viewport width x text height
         int gradient_width = use_text_dimensions ? text_width : viewport_width;
-        int gradient_height = text_height;
+        int gradient_height = text_height + 2 * wave_amplitude;
 
         if (first.type == Tweening::GradientType::Linear
                 && second.type == Tweening::GradientType::Linear) {
@@ -342,6 +342,10 @@ public:
             first.width = gradient_width;
             first.height = gradient_height;
         } else if (first.type == Tweening::GradientType::Linear
+                   && first.orientation == Tweening::Orientation::Vertical) {
+            // Vertical: steps = gradient height
+            first.steps = gradient_height;
+        } else if (first.type == Tweening::GradientType::Linear
                    && first.orientation == Tweening::Orientation::Horizontal) {
             // Horizontal: steps = gradient width
             first.steps = gradient_width;
@@ -351,122 +355,89 @@ public:
 
         int plane_height = plane->get_dim_y();
 
-        if (wave_amplitude != 0 && offset < viewport_width && offset + text_width > 0) {
-            // Wave mode: render column by column, but snap each column's y offset to the
-            // center x of its parent character so the whole character moves as a unit.
-            // Without this, individual columns of the same glyph end up at different heights,
-            // tearing the character apart. The inter-character staircase is unavoidable (no
-            // sub-row precision in a terminal), but at least each glyph is internally coherent.
-            constexpr float wave_spatial_freq = 2.0f * 3.14159265f / 150.0f;
+        // Map every text column → its character's center x (in text coordinates).
+        // Snapping per-column y to the character center keeps each glyph internally
+        // coherent during wave rendering (all columns of one glyph share one y offset).
+        std::vector<float> col_center;
 
-            // Map every text column → its character's center x (in text coordinates).
-            std::vector<float> col_center(text_width, 0.0f);
-            {
-                auto char_ranges = buildCharRanges(text);
+        if (wave_amplitude != 0) {
+            col_center.resize(text_width, 0.0f);
+            auto char_ranges = buildCharRanges(text);
 
-                for (const auto& [s, e] : char_ranges) {
-                    float center = (s + e - 1) * 0.5f;
+            for (const auto& [s, e] : char_ranges) {
+                float center = (s + e - 1) * 0.5f;
 
-                    for (int c = s; c < e && c < text_width; ++c) {
-                        col_center[c] = center;
-                    }
+                for (int c = s; c < e && c < text_width; ++c) {
+                    col_center[c] = center;
                 }
             }
-
-            int x_start = std::max(0, offset);
-            int x_end = std::min(viewport_width, offset + text_width);
-
-            for (int screen_col = x_start; screen_col < x_end; ++screen_col) {
-                int text_col = screen_col - offset;
-
-                if (text_col >= text_width) {
-                    continue;
-                }
-
-                // -t off: phase from screen position → wave is fixed in screen space,
-                //         circular instances share the same continuous wave.
-                // -t on:  phase from text position → wave travels with the text.
-                float char_x = use_text_dimensions
-                               ? col_center[text_col]
-                               : static_cast<float>(offset) + col_center[text_col];
-                float phase = wave_phase + char_x * wave_spatial_freq;
-                int y_off = static_cast<int>(std::round(wave_amplitude * std::sin(phase)));
-                int col_y = std::clamp(y + y_off, 0, std::max(0, plane_height - text_height));
-
-                for (int i = 0; i < text_height; ++i) {
-                    if (col_y + i >= plane_height) {
-                        continue;
-                    }
-
-                    if (text_col >= (int)lines[i].size()) {
-                        continue;
-                    }
-
-                    uint32_t color = 0xFFFFFF;
-                    int color_x = use_text_dimensions ? text_col : screen_col;
-
-                    if (i < (int)two_d.size() && color_x < (int)two_d[i].size()) {
-                        color = two_d[i][color_x];
-                    } else if (first.orientation == Tweening::Orientation::Vertical
-                               && i < (int)one_d.size()) {
-                        color = one_d[i];
-                    } else if (color_x < (int)one_d.size()) {
-                        color = one_d[color_x];
-                    }
-
-                    plane->set_fg_rgb(color);
-                    plane->putc(col_y + i, screen_col, lines[i][text_col]);
-                }
-            }
-
-            return;
         }
 
-        // Normal mode: render row by row.
-        int text_end_pos = offset + text_width;
-        int visible_width = 0;
         int line_offset = 0;
+        int visible_width = 0;
 
-        if (offset < viewport_width && text_end_pos > 0) {
+        if (offset < viewport_width && offset + text_width > 0) {
             line_offset = std::max(0, -offset);
             visible_width = std::min(text_width - line_offset, viewport_width - std::max(0, offset));
         }
 
-        // Render each line
-        for (int i = 0; i < text_height; ++i) {
-            if (y + i < 0 || y + i >= plane_height) {
-                continue;
+        if (visible_width <= 0) {
+            return;
+        }
+
+        int screen_x = std::max(0, offset);
+
+        // Outer loop over columns so y_off (and the sin() it needs) is computed
+        // once per column rather than once per (row, column) pair.
+        for (int j = 0; j < visible_width; ++j) {
+            int text_x = line_offset + j;
+            int screen_j = screen_x + j;
+
+            // Compute wave y-offset for this column (0 when wave_amplitude == 0).
+            // -t off: phase from screen position → wave is fixed in screen space,
+            //         circular instances share the same continuous wave.
+            // -t on:  phase from text position → wave travels with the text.
+            int y_off = 0;
+
+            if (wave_amplitude != 0 && text_x < (int)col_center.size()) {
+                constexpr float wave_spatial_freq = 2.0f * 3.14159265f / 150.0f;
+                float char_x = use_text_dimensions
+                               ? col_center[text_x]
+                               : static_cast<float>(offset) + col_center[text_x];
+                float phase = wave_phase + char_x * wave_spatial_freq;
+                y_off = static_cast<int>(std::round(wave_amplitude * std::sin(phase)));
             }
 
-            if (visible_width > 0) {
-                int screen_x = std::max(0, offset);
+            int col_y = std::clamp(y + y_off, 0, std::max(0, plane_height - text_height));
+            int color_x = use_text_dimensions ? text_x : screen_j;
 
-                for (int j = 0; j < visible_width; ++j) {
-                    int text_x = line_offset + j;
-                    int screen_j = screen_x + j;
-
-                    if (text_x >= (int)lines[i].size()) {
-                        break;
-                    }
-
-                    // Get color based on position
-                    uint32_t color = 0xFFFFFF; // Default white
-                    int color_x = use_text_dimensions ? text_x : screen_j;
-
-                    if (i < (int)two_d.size() && color_x < (int)two_d[i].size()) {
-                        color = two_d[i][color_x];
-                    } else if (first.orientation == Tweening::Orientation::Vertical
-                               && i < (int)one_d.size()) {
-                        color = one_d[i];
-                    } else if ((first.orientation == Tweening::Orientation::Horizontal
-                                                  || (first.type == Tweening::GradientType::Linear && second.type == Tweening::GradientType::Linear))
-                               && color_x < (int)one_d.size()) {
-                        color = one_d[color_x];
-                    }
-
-                    plane->set_fg_rgb(color);
-                    plane->putc(y + i, screen_x + j, lines[i][text_x]);
+            for (int i = 0; i < text_height; ++i) {
+                if (text_x >= (int)lines[i].size()) {
+                    break;
                 }
+
+                if (col_y + i >= plane_height) {
+                    continue;
+                }
+
+                // Get color based on position.
+                // color_y shifts with the wave so colors follow the character's screen position.
+                uint32_t color = 0xFFFFFF;
+                int color_y = wave_amplitude + y_off + i;
+
+                if (color_y < (int)two_d.size() && color_x < (int)two_d[color_y].size()) {
+                    color = two_d[color_y][color_x];
+                } else if (first.orientation == Tweening::Orientation::Vertical
+                           && color_y < (int)one_d.size()) {
+                    color = one_d[color_y];
+                } else if ((first.orientation == Tweening::Orientation::Horizontal
+                            || (first.type == Tweening::GradientType::Linear && second.type == Tweening::GradientType::Linear))
+                           && color_x < (int)one_d.size()) {
+                    color = one_d[color_x];
+                }
+
+                plane->set_fg_rgb(color);
+                plane->putc(col_y + i, screen_j, lines[i][text_x]);
             }
         }
     }
