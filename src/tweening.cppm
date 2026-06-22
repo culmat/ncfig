@@ -77,6 +77,9 @@ public:
         std::size_t steps;   ///< Number of interpolation steps (for linear gradients).
         std::size_t width;   ///< Width in pixels (for radial gradients).
         std::size_t height;  ///< Height in pixels (for radial gradients).
+
+        std::vector<uint32_t> one_d;              ///< Cached 1-D gradient result.
+        std::vector<std::vector<uint32_t>> two_d; ///< Cached 2-D gradient result.
     };
 
     /**

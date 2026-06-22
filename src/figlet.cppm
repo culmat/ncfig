@@ -301,8 +301,8 @@ public:
         int y,
         int x,
         std::string_view text,
-        Tweening::Gradient first,
-        Tweening::Gradient second,
+        Tweening::Gradient& first,
+        Tweening::Gradient& second,
         int viewport_width,
         int offset = 0,
         bool use_text_dimensions = false,
@@ -593,24 +593,28 @@ private:
     }
 
     /**
-     * @brief Prepares the gradients and colors for rendering.
-     * @param lines The lines of text.
-     * @param first First gradient.
-     * @param second Second gradient.
-     * @return A tuple with (one_d, two_d, max_width).
+     * @brief Prepares the gradients and colors for rendering, caching results in the gradient objects.
+     *
+     * On first call the gradient is computed and stored in first.one_d / first.two_d.
+     * Subsequent calls with the same dimensions reuse the cached result without recomputing.
+     * The cache is invalidated automatically when the expected gradient dimensions change
+     * (e.g. on terminal resize).
+     *
+     * @param lines The lines of text (used to derive default dimensions).
+     * @param first Primary gradient — result is cached here.
+     * @param second Secondary gradient (used for parallel 2-D gradients).
+     * @return Const references to the cached one_d / two_d inside first, plus max_width.
      */
-    std::tuple <
-    std::vector<uint32_t>,
-        std::vector<std::vector<uint32_t>>,
+    std::tuple<
+        const std::vector<uint32_t>&,
+        const std::vector<std::vector<uint32_t>>&,
         std::size_t
-        > prepareGradients(
-            const std::vector<std::string>& lines,
-            Tweening::Gradient first,
-            Tweening::Gradient second
-        ) const
+    > prepareGradients(
+        const std::vector<std::string>& lines,
+        Tweening::Gradient& first,
+        Tweening::Gradient& second
+    ) const
     {
-        std::vector<uint32_t> one_d;
-        std::vector<std::vector<uint32_t>> two_d;
         std::size_t max_width = 0;
 
         for (const auto& line : lines) {
@@ -627,7 +631,12 @@ private:
             if (second.steps == 0) {
                 second.steps = max_width;
             }
-            two_d = Tweening::Parallel(first, second);
+            if (first.two_d.size() != first.steps
+                    || first.two_d.empty()
+                    || first.two_d[0].size() != second.steps) {
+                first.two_d = Tweening::Parallel(first, second);
+                first.one_d.clear();
+            }
         } else if (first.type == Tweening::GradientType::Radial) {
             // Radial gradient
             if (first.width == 0) {
@@ -636,25 +645,34 @@ private:
             if (first.height == 0) {
                 first.height = lines.size();
             }
-            two_d = Tweening::radial(first);
+            if (first.two_d.size() != first.height
+                    || first.two_d.empty()
+                    || first.two_d[0].size() != first.width) {
+                first.two_d = Tweening::radial(first);
+                first.one_d.clear();
+            }
         } else if (first.type == Tweening::GradientType::Linear
                    && first.orientation == Tweening::Orientation::Vertical) {
             // One-dimensional gradient (vertical)
             if (first.steps == 0) {
                 first.steps = lines.size();
             }
-
-            one_d = Tweening::Linear(first);
+            if (first.one_d.size() != first.steps) {
+                first.one_d = Tweening::Linear(first);
+                first.two_d.clear();
+            }
         } else if (first.type == Tweening::GradientType::Linear
                    && first.orientation == Tweening::Orientation::Horizontal) {
             // One-dimensional gradient (horizontal)
             if (first.steps == 0) {
                 first.steps = max_width;
             }
-
-            one_d = Tweening::Linear(first);
+            if (first.one_d.size() != first.steps) {
+                first.one_d = Tweening::Linear(first);
+                first.two_d.clear();
+            }
         }
 
-        return {one_d, two_d, max_width};
+        return {first.one_d, first.two_d, max_width};
     }
 };
