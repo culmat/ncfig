@@ -155,16 +155,15 @@ int main(int argc, char** argv)
 
     // Animation loop
     bool running = true;
-    int frame_count = 0;
 
     // Angular step per frame: 2π / 120 gives a ~6-second cycle at 50ms/frame
     constexpr float wave_step = 2.0f * static_cast<float>(M_PI) / 120.0f;
+    constexpr float wave_period = 2.0f * static_cast<float>(M_PI);
+    float wave_phase = 0.0f;
 
     while (running) {
         // Clear the standard plane
         std_plane->erase();
-
-        float wave_phase = wave_step * frame_count;
 
         if (circular_mode) {
             // In circular mode, x_pos is where the first instance's x=0 is rendered
@@ -200,8 +199,6 @@ int main(int argc, char** argv)
                 );
             }
 
-            // In circular mode, let x_pos go negative forever
-            // Instances to the left are handled by x_pos becoming negative
         } else {
             // Normal mode: render once
             font.renderToViewport(
@@ -226,13 +223,15 @@ int main(int argc, char** argv)
         x_pos--;
 
         if (circular_mode) {
-            // In circular mode, let x_pos go negative forever
-            // The renderToViewport calls with different offsets will handle the seamless effect
+            // Wrap x_pos within one text period to keep sin() arguments bounded.
+            // Visual continuity is preserved because rendering handles arbitrary offsets.
+            if (x_pos <= -text_width) {
+                x_pos += text_width;
+            }
         } else {
             // In normal mode, reset when text has completely left the visible area
-            // The entire text has left when: x_pos + text_width <= 0
             if (x_pos + text_width <= 0) {
-                x_pos = screen_width;  // Reset to just off-screen on the right
+                x_pos = screen_width;
             }
         }
 
@@ -246,7 +245,10 @@ int main(int argc, char** argv)
             running = false;
         }
 
-        ++frame_count;
+        wave_phase += wave_step;
+        if (wave_phase >= wave_period) {
+            wave_phase -= wave_period;
+        }
 
         // Add delay between frames
         std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
