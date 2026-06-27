@@ -378,16 +378,13 @@ public:
             int screen_j = screen_x + j;
 
             // Compute wave y-offset for this column (0 when wave_amplitude == 0).
-            // -t off: phase from screen position → wave is fixed in screen space,
-            //         circular instances share the same continuous wave.
-            // -t on:  phase from text position → wave travels with the text.
+            // Wave always uses screen-space position,
+            // i. e. circular instances share one continuous wave
             int y_off = 0;
 
             if (wave_amplitude != 0 && text_x < (int)col_center.size()) {
                 constexpr float wave_spatial_freq = 2.0f * 3.14159265f / 150.0f;
-                float char_x = use_text_dimensions
-                               ? col_center[text_x]
-                               : static_cast<float>(offset) + col_center[text_x];
+                float char_x = static_cast<float>(offset) + col_center[text_x];
                 float phase = wave_phase + char_x * wave_spatial_freq;
                 y_off = static_cast<int>(std::round(wave_amplitude * std::sin(phase)));
             }
