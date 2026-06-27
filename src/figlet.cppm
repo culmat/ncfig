@@ -199,7 +199,8 @@ public:
             return;
         }
 
-        auto lines = renderToStrings(text);
+        updateTextCache(text);
+        const auto& lines = text_cache_lines;
         auto[
             one_d,
             two_d,
@@ -314,19 +315,15 @@ public:
             return;
         }
 
-        // Render text to strings
-        auto lines = renderToStrings(text);
+        updateTextCache(text);
+        const auto& lines = text_cache_lines;
 
         if (lines.empty()) {
             return;
         }
 
-        int text_height = lines.size();
-        int text_width = 0;
-
-        for (const auto& line : lines) {
-            text_width = std::max(text_width, static_cast<int>(line.size()));
-        }
+        int text_height = static_cast<int>(lines.size());
+        int text_width = text_cache_width;
 
         // Prepare gradients
         // If use_text_dimensions, use text dimensions; otherwise use viewport width x text height
@@ -358,20 +355,7 @@ public:
         // Map every text column → its character's center x (in text coordinates).
         // Snapping per-column y to the character center keeps each glyph internally
         // coherent during wave rendering (all columns of one glyph share one y offset).
-        std::vector<float> col_center;
-
-        if (wave_amplitude != 0) {
-            col_center.resize(text_width, 0.0f);
-            auto char_ranges = buildCharRanges(text);
-
-            for (const auto& [s, e] : char_ranges) {
-                float center = (s + e - 1) * 0.5f;
-
-                for (int c = s; c < e && c < text_width; ++c) {
-                    col_center[c] = center;
-                }
-            }
-        }
+        const auto& col_center = text_cache_col_center;
 
         int line_offset = 0;
         int visible_width = 0;
@@ -458,19 +442,13 @@ public:
             return {0, 0};
         }
 
-        auto lines = renderToStrings(text);
+        updateTextCache(text);
 
-        if (lines.empty()) {
+        if (text_cache_lines.empty()) {
             return {0, 0};
         }
 
-        int max_width = 0;
-
-        for (const auto& line : lines) {
-            max_width = std::max(max_width, static_cast<int>(line.size()));
-        }
-
-        return {max_width, static_cast<int>(lines.size())};
+        return {text_cache_width, static_cast<int>(text_cache_lines.size())};
     }
 
 private:
@@ -482,6 +460,38 @@ private:
     int comment_lines = 0;
 
     std::unordered_map<char32_t, std::vector<std::string>> glyphs;
+
+    mutable std::string                      text_cache_key;
+    mutable std::vector<std::string>         text_cache_lines;
+    mutable int                              text_cache_width = 0;
+    mutable std::vector<std::pair<int, int>> text_cache_char_ranges;
+    mutable std::vector<float>               text_cache_col_center;
+
+    void updateTextCache(std::string_view text) const
+    {
+        if (text_cache_key == text) {
+            return;
+        }
+
+        text_cache_key.assign(text);
+        text_cache_lines = renderToStrings(text);
+        text_cache_width = 0;
+
+        for (const auto& line : text_cache_lines) {
+            text_cache_width = std::max(text_cache_width, static_cast<int>(line.size()));
+        }
+
+        text_cache_char_ranges = buildCharRanges(text);
+        text_cache_col_center.assign(text_cache_width, 0.0f);
+
+        for (const auto& [s, e] : text_cache_char_ranges) {
+            float center = (s + e - 1) * 0.5f;
+
+            for (int c = s; c < e && c < text_cache_width; ++c) {
+                text_cache_col_center[c] = center;
+            }
+        }
+    }
 
     // Simple robust custom UTF-8 state decoder helper loop
     static std::vector<char32_t> decodeUtf8(std::string_view text)
