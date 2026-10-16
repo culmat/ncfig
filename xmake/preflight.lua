@@ -8,6 +8,7 @@
 -- file requires but whose distribution package doesn't pull in.
 
 import("lib.detect.find_tool")
+import("core.project.config")
 
 local hints = {
     ["pkgconfig::notcurses++"] = {
@@ -36,6 +37,19 @@ local managers = {
 }
 
 local reported = {}
+
+-- the `xmake f` command that reconfigures with the toolchain settings in
+-- use, so that following a fix doesn't throw them away
+local function reconfigure()
+    local cmd = "xmake f -c"
+    for _, name in ipairs({"toolchain", "sdk"}) do
+        local value = config.get(name)
+        if value then
+            cmd = cmd .. " --" .. name .. "=" .. tostring(value)
+        end
+    end
+    return cmd
+end
 
 -- the system package managers available here, in order of preference
 local function available_managers()
@@ -103,7 +117,7 @@ local function add_install_fixes(lines, packages)
             table.insert(lines, string.format("note:  %s has no package %s on this system (try `sudo apt update` first)",
                 m.name, packages[m.name]))
         elseif packages[m.name] then
-            table.insert(lines, "fix:   " .. string.format(m.install, packages[m.name]) .. " && xmake f -c")
+            table.insert(lines, "fix:   " .. string.format(m.install, packages[m.name]) .. " && " .. reconfigure())
             added = true
         end
     end
@@ -145,7 +159,7 @@ local function diagnose(name)
         if prefix then
             local pcdir = path.join(prefix, "lib", "pkgconfig")
             table.insert(lines, "cause: " .. hint.brew .. " is installed at " .. prefix .. " but pkg-config does not see it")
-            table.insert(lines, "fix:   export PKG_CONFIG_PATH=\"" .. pcdir .. ":$PKG_CONFIG_PATH\" && xmake f -c")
+            table.insert(lines, "fix:   export PKG_CONFIG_PATH=\"" .. pcdir .. ":$PKG_CONFIG_PATH\" && " .. reconfigure())
             return lines
         end
     end
