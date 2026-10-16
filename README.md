@@ -109,7 +109,25 @@ The FIGlet site has a FTP server as well, but as FTP is so very dead I assume yo
 
 ## Building
 
-Requires [xmake](https://xmake.io) and a recent C++ compiler.
+Requires [xmake](https://xmake.io), a C++ compiler with C++20 modules support (see [Dependencies](#dependencies)) and Notcurses.
+
+On Debian/Ubuntu:
+
+```sh
+sudo apt install clang clang-tools pkg-config libnotcurses++-dev libncurses-dev
+xmake f --toolchain=clang   # GCC before 16 can't build this, see below
+```
+
+`libncurses-dev` is needed because Notcurses' pkg-config files require `tinfo`, which the Notcurses packages don't pull in.
+
+On macOS, install Notcurses and LLVM with Homebrew and build with Homebrew's LLVM, since Apple's clang lacks a matching `clang-scan-deps`:
+
+```sh
+brew install notcurses llvm
+xmake f --toolchain=llvm --sdk=$(brew --prefix llvm)
+```
+
+If something is missing or mismatched, `xmake` stops before compiling, explains the cause and proposes a fix.
 
 ### Build all tools:
 
@@ -139,4 +157,4 @@ In this case, the executables are in `build/linux/x86_64/debug/`.
 ### Dependencies
 
 - [Notcurses](https://github.com/dankamongmen/notcurses) (`notcurses++`) — discoverable via `pkg-config`
-- GCC 16 or Clang 21 - I couldn't get Clang 22 to compile this.
+- GCC 16 or Clang 21 - I couldn't get Clang 22 to compile this. GCC 13 to 15 fail on the Notcurses headers; Clang 18 and Homebrew LLVM 23 are known to work.
