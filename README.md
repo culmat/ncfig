@@ -4,13 +4,33 @@ A collection of command-line tools for rendering beautiful [FIGlet](https://www.
 
 ![ncfig Logo](/logo.png "ncfig. This was rendered using the font univers.flf")
 
+## Installing
+
+Prebuilt binaries for Linux (x86_64, aarch64; fully static) and macOS 13 or newer (Intel, Apple Silicon) come with every [release](https://github.com/jaydg/ncfig/releases), together with the standard FIGlet fonts. No compiler and no Notcurses installation needed.
+
+**Try it without installing** (downloads to a temporary directory and plays a demo; any key ends it):
+
+```sh
+bash <(curl -L https://raw.githubusercontent.com/jaydg/ncfig/main/scripts/launch.sh)
+```
+
+The same command runs the tools with your own arguments, e.g. `... launch.sh) ncfig -f slant -v 0xff0000:0x0000ff "Hello"`.
+
+**Install with a script** into `~/.local/bin` (set `PREFIX` for another location):
+
+```sh
+bash <(curl -L https://raw.githubusercontent.com/jaydg/ncfig/main/scripts/install.sh)
+```
+
+To build from source instead, see [Building](#building).
+
 ## Tools
 
 ### ncfig
 
 Renders text to the terminal using FIGlet fonts.
 
-The examples below assume you have built and installed the tools and downloaded the fonts, see [Building](#building) and [Getting Fonts](#getting-fonts).
+The examples below assume the tools are [installed](#installing). Installed releases ship the standard FIGlet fonts, which can be given by name (`-f banner`); see [Getting Fonts](#getting-fonts).
 
 **Usage:**
 
@@ -101,13 +121,15 @@ Example: `0xff0000:0x0000ff` creates a red-to-blue gradient. Two colors are mand
 
 ## Getting Fonts
 
-The examples above use the fonts of the FIGlet standard distribution (`banner.flf`, `standard.flf`, `big.flf`, `slant.flf`, ...). To download these 17 fonts into `fonts/`, run
+The examples above use the fonts of the FIGlet standard distribution (`banner.flf`, `standard.flf`, `big.flf`, `slant.flf`, ...). The `-f` option takes either the path of a `.flf` file or the name of a font, with or without the extension. Names are looked up in `$NCFIG_FONTDIR`, in `fonts/` next to the executable, in `../share/ncfig/fonts` relative to the executable (where installed releases keep the fonts), and last in the current directory; use `./name.flf` for a file there. So after installing, `-f banner` just works.
+
+When building from source, download these 17 fonts into `fonts/` with
 
 ```sh
 xmake fonts
 ```
 
-This clones Claudio Matsuoka's [figlet-fonts](https://github.com/cmatsuoka/figlet-fonts) repository into `build/` and copies the standard fonts out of it. Running it again updates them.
+This clones Claudio Matsuoka's [figlet-fonts](https://github.com/cmatsuoka/figlet-fonts) repository into `build/` and copies the standard fonts out of it. Running it again updates them. `xmake install` installs them along with the tools; while developing, `export NCFIG_FONTDIR=$PWD/fonts` lets you use names with the binaries in `build/`.
 
 For more fonts, I found these sources, two of them on GitHub:
 
@@ -157,13 +179,13 @@ xmake doesn't put the binaries on your `PATH`; `xmake install` does. Install for
 xmake install -o ~/.local
 ```
 
-This puts `ncfig` and `ncmarquee` into `~/.local/bin`. Make sure that directory is on your `PATH` (it is by default on most current Linux distributions, on macOS add `export PATH="$HOME/.local/bin:$PATH"` to your shell profile). Alternatively install system-wide:
+This puts `ncfig` and `ncmarquee` into `~/.local/bin` and the fonts from `xmake fonts` into `~/.local/share/ncfig/fonts`. Make sure the `bin` directory is on your `PATH` (it is by default on most current Linux distributions, on macOS add `export PATH="$HOME/.local/bin:$PATH"` to your shell profile). Alternatively install system-wide:
 
 ```sh
 sudo xmake install -o /usr/local
 ```
 
-`xmake uninstall --installdir=<dir>` with the same directory removes them again. The examples in this README assume the tools are installed and are run from the project directory, where `xmake fonts` put the fonts.
+`xmake uninstall --installdir=<dir>` with the same directory removes them again.
 
 ### Get the fonts for the examples:
 
@@ -192,3 +214,23 @@ In this case, the executables are in `build/<platform>/<arch>/debug/`.
 
 - [Notcurses](https://github.com/dankamongmen/notcurses) (`notcurses++`) — discoverable via `pkg-config`
 - GCC 16 or Clang 21 - I couldn't get Clang 22 to compile this. GCC 13 to 15 fail on the Notcurses headers; Clang 18 and Homebrew LLVM 23 are known to work.
+
+## Releasing
+
+Pushing a version tag builds the release binaries and publishes them:
+
+```sh
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+The [release workflow](.github/workflows/release.yml) runs [scripts/build-release.sh](scripts/build-release.sh) on four runners (Alpine containers for static Linux binaries, macOS Intel and Apple Silicon), collects the archives `ncfig-<arch>-<os>.tar.gz` plus `SHA256SUMS`, and creates the GitHub Release. The launcher and install scripts always fetch the latest release. Pushes to `main` and pull requests run the build jobs only.
+
+The binaries link Notcurses statically (`xmake f --static=y`, see [xmake/static.lua](xmake/static.lua)); the script can be run locally if the static libraries of notcurses, libunistring, libdeflate and ncurses are installed.
+
+Testing the release workflow on a fork works the same way; the launcher and install script take `NCFIG_REPO=owner/ncfig` to fetch that fork's releases.
+
+Optionally, the tools can be offered through a Homebrew tap: create a repository `homebrew-tap` under the same GitHub account and add a repository secret `HOMEBREW_TAP_TOKEN` here, holding a token with write access to the tap (a fine-grained personal access token with "Contents: read and write" on that one repository). The workflow then renders [packaging/homebrew/ncfig.rb.in](packaging/homebrew/ncfig.rb.in) with the release checksums and pushes it to `Formula/ncfig.rb` in the tap, so `brew install <owner>/tap/ncfig` installs the new version. Without the secret, that step is skipped and the formula can be generated by hand:
+
+```sh
+scripts/homebrew-formula.sh v0.1.0 SHA256SUMS > Formula/ncfig.rb
+```

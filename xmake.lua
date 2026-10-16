@@ -14,6 +14,26 @@ rule("preflight")
     end)
 rule_end()
 
+-- `xmake f --static=y` links Notcurses and its dependencies statically, so
+-- that the binary runs without them installed. Used for the release builds;
+-- see xmake/static.lua.
+option("static")
+    set_default(false)
+    set_showmenu(true)
+    set_description("Link Notcurses statically (release binaries)")
+option_end()
+
+rule("notcurses")
+    on_load(function (target)
+        if has_config("static") then
+            import("static", {rootdir = path.join(os.projectdir(), "xmake")})
+            static.configure(target)
+        else
+            target:add("packages", "pkgconfig::notcurses++")
+        end
+    end)
+rule_end()
+
 -- `xmake fonts` downloads the standard FIGlet fonts into fonts/ so that the
 -- examples in the README work. Implementation in xmake/fonts.lua.
 task("fonts")
@@ -32,13 +52,14 @@ task_end()
 target("ncfig")
     set_kind("binary")
     set_languages("cxx20")
-    add_rules("preflight")
+    add_rules("preflight", "notcurses")
     add_files("src/ncfig.cpp", "src/*.cppm")
-    add_packages("pkgconfig::notcurses++")
+    -- `xmake install` ships the fonts from `xmake fonts`, where the tools
+    -- look for fonts given by name (see FigletFont::fontDirs)
+    add_installfiles("fonts/*.flf", {prefixdir = "share/ncfig/fonts"})
 
 target("ncmarquee")
     set_kind("binary")
     set_languages("cxx20")
-    add_rules("preflight")
+    add_rules("preflight", "notcurses")
     add_files("src/ncmarquee.cpp", "src/*.cppm")
-    add_packages("pkgconfig::notcurses++")
