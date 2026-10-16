@@ -9,6 +9,7 @@
 
 import("lib.detect.find_tool")
 import("core.project.config")
+import("tools")
 
 local hints = {
     ["pkgconfig::notcurses++"] = {
@@ -36,8 +37,6 @@ local managers = {
     {name = "zypper", install = "sudo zypper install %s"},
 }
 
-local reported = {}
-
 -- the `xmake f` command that reconfigures with the toolchain settings in
 -- use, so that following a fix doesn't throw them away
 local function reconfigure()
@@ -63,21 +62,10 @@ local function available_managers()
     return found
 end
 
--- the prefix brew installed `formula` to, or nil if it isn't installed
-local function brew_prefix(formula)
-    local ok, out = try { function () return true, os.iorunv("brew", {"--prefix", "--installed", formula}) end }
-    if ok and out then
-        out = out:trim()
-        if #out > 0 and os.isdir(out) then
-            return out
-        end
-    end
-end
-
 -- the pkg-config module that `module` requires but that is not installed,
 -- or nil if pkg-config reports no such problem
 local function missing_requirement(module)
-    local pkgconfig = find_tool("pkg-config") or find_tool("pkgconf")
+    local pkgconfig = tools.pkgconfig()
     if not pkgconfig then
         return
     end
@@ -135,7 +123,7 @@ local function diagnose(name)
 
     table.insert(lines, "provides: " .. hint.description)
 
-    if hint.pkgconfig and not find_tool("pkg-config") and not find_tool("pkgconf") then
+    if hint.pkgconfig and not tools.pkgconfig() then
         table.insert(lines, "cause: pkg-config is not installed, so xmake cannot look up " .. hint.pkgconfig)
         add_install_fixes(lines, {brew = "pkgconf", apt = "pkg-config", dnf = "pkgconf", pacman = "pkgconf", zypper = "pkgconf"})
         return lines
@@ -154,8 +142,8 @@ local function diagnose(name)
         end
     end
 
-    if hint.brew and find_tool("brew") then
-        local prefix = brew_prefix(hint.brew)
+    if hint.brew then
+        local prefix = tools.brew_prefix(hint.brew)
         if prefix then
             local pcdir = path.join(prefix, "lib", "pkgconfig")
             table.insert(lines, "cause: " .. hint.brew .. " is installed at " .. prefix .. " but pkg-config does not see it")
@@ -173,16 +161,6 @@ local function diagnose(name)
         table.insert(lines, "check: pkg-config --modversion " .. hint.pkgconfig)
     end
     return lines
-end
-
--- the major clang version reported by `program --version`, and
--- whether it is Apple's clang
-local function clang_version(program)
-    local ok, out = try { function () return true, os.iorunv(program, {"--version"}) end }
-    if not ok or not out then
-        return
-    end
-    return out:match("version (%d+)"), out:find("Apple clang", 1, true) ~= nil
 end
 
 -- `program` as an absolute path, looked up in PATH if needed
@@ -247,7 +225,7 @@ local function check_module_scanner(target)
         return
     end
     program = resolve(program) or program
-    local cxx_major, apple = clang_version(program)
+    local cxx_major, apple = tools.clang_version(program)
 
     -- a scanner shipped with the compiler, e.g. /usr/lib/llvm-18/bin on
     -- Debian/Ubuntu (where /usr/bin only has clang-scan-deps-18)
@@ -274,7 +252,7 @@ local function check_module_scanner(target)
         return lines
     end
 
-    local scan_major = clang_version(scanner.program)
+    local scan_major = tools.clang_version(scanner.program)
     if cxx_major and scan_major and cxx_major == scan_major and not apple then
         return
     end
@@ -347,13 +325,8 @@ function check(target)
     local report = {}
     for _, name in ipairs(missing) do
         table.insert(report, "  " .. name)
-        if not reported[name] then
-            reported[name] = true
-            for _, line in ipairs(diagnose(name)) do
-                table.insert(report, "    " .. line)
-            end
-        else
-            table.insert(report, "    (see above)")
+        for _, line in ipairs(diagnose(name)) do
+            table.insert(report, "    " .. line)
         end
     end
     raise("target(%s): missing dependencies\n%s", target:name(), table.concat(report, "\n"))
