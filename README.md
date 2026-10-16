@@ -10,6 +10,8 @@ A collection of command-line tools for rendering beautiful [FIGlet](https://www.
 
 Renders text to the terminal using FIGlet fonts.
 
+The examples below assume you have built and installed the tools and downloaded the fonts, see [Building](#building) and [Getting Fonts](#getting-fonts).
+
 **Usage:**
 
 ```
@@ -99,7 +101,15 @@ Example: `0xff0000:0x0000ff` creates a red-to-blue gradient. Two colors are mand
 
 ## Getting Fonts
 
-I found these sources for FIGlet fonts, two of them on GitHub:
+The examples above use the fonts of the FIGlet standard distribution (`banner.flf`, `standard.flf`, `big.flf`, `slant.flf`, ...). To download these 17 fonts into `fonts/`, run
+
+```sh
+xmake fonts
+```
+
+This clones Claudio Matsuoka's [figlet-fonts](https://github.com/cmatsuoka/figlet-fonts) repository into `build/` and copies the standard fonts out of it. Running it again updates them.
+
+For more fonts, I found these sources, two of them on GitHub:
 
  * The [font database](https://www.figlet.org/cgi-bin/fontdb.cgi) on the FIGlet site allows to browse and preview the fonts.
  * Claudio Matsuoka's repository [figlet-fonts](https://github.com/cmatsuoka/figlet-fonts) has everything the FIGlet font database has plus a lot of extra fonts, easily to be cloned to a local repository. Some of the fonts were automatically generated from old X11 fonts and C64 demo fonts, in these cases the quality is not always optimal.
@@ -135,9 +145,33 @@ If something is missing or mismatched, `xmake` stops before compiling, explains 
 xmake
 ```
 
-Binaries will be in `build/linux/x86_64/release/`:
+The binaries end up in `build/<platform>/<arch>/release/`, for example `build/linux/x86_64/release/` or `build/macosx/arm64/release/`:
 - `ncfig` - Static FIGlet renderer
 - `ncmarquee` - Full-screen marquee animation
+
+### Install the tools:
+
+xmake doesn't put the binaries on your `PATH`; `xmake install` does. Install for your user only:
+
+```sh
+xmake install -o ~/.local
+```
+
+This puts `ncfig` and `ncmarquee` into `~/.local/bin`. Make sure that directory is on your `PATH` (it is by default on most current Linux distributions, on macOS add `export PATH="$HOME/.local/bin:$PATH"` to your shell profile). Alternatively install system-wide:
+
+```sh
+sudo xmake install -o /usr/local
+```
+
+`xmake uninstall --installdir=<dir>` with the same directory removes them again. The examples in this README assume the tools are installed and are run from the project directory, where `xmake fonts` put the fonts.
+
+### Get the fonts for the examples:
+
+```sh
+xmake fonts
+```
+
+See [Getting Fonts](#getting-fonts).
 
 ### Build a specific tool:
 
@@ -162,7 +196,7 @@ using `includes(...)` and `add_deps("figlet-core")`.
 xmake f -m debug && xmake
 ```
 
-In this case, the executables are in `build/linux/x86_64/debug/`.
+In this case, the executables are in `build/<platform>/<arch>/debug/`.
 
 ### Dependencies
 
