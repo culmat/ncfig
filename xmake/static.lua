@@ -9,43 +9,15 @@
 -- from its .a archive when one is found, so that the binary only depends on
 -- system libraries.
 
-import("lib.detect.find_tool")
-
-local function pkgconfig()
-    return find_tool("pkg-config") or find_tool("pkgconf")
-end
-
--- the output of `pkg-config <args>`, or nil if the call fails
-local function query(args)
-    local pc = pkgconfig()
-    if not pc then
-        return nil
-    end
-    local ok, out = try { function () return true, os.iorunv(pc.program, args) end }
-    if ok and out then
-        return out:trim()
-    end
-end
-
--- the prefix brew installed `formula` to, or nil
-local function brew_prefix(formula)
-    if not find_tool("brew") then
-        return nil
-    end
-    local args = formula and {"--prefix", "--installed", formula} or {"--prefix"}
-    local ok, out = try { function () return true, os.iorunv("brew", args) end }
-    if ok and out and os.isdir(out:trim()) then
-        return out:trim()
-    end
-end
+import("tools")
 
 -- configures `target` to link Notcurses statically
 function configure(target)
-    if not pkgconfig() then
+    if not tools.pkgconfig() then
         raise("target(%s): --static needs pkg-config to locate notcurses", target:name())
     end
-    local cflags = query({"--cflags", "notcurses++"})
-    local libs = query({"--static", "--libs", "notcurses-core"})
+    local cflags = tools.pkgconfig_query({"--cflags", "notcurses++"})
+    local libs = tools.pkgconfig_query({"--static", "--libs", "notcurses-core"})
     if not cflags or not libs then
         raise("target(%s): --static needs notcurses installed with its static libraries\n" ..
               "    check: pkg-config --static --libs notcurses-core", target:name())
@@ -65,8 +37,8 @@ function configure(target)
         end
     end
     -- libnotcurses-core uses libdeflate, but the .pc file doesn't say so
-    if query({"--exists", "libdeflate"}) then
-        for _, flag in ipairs((query({"--libs-only-L", "libdeflate"}) or ""):split("%s+")) do
+    if tools.pkgconfig_query({"--exists", "libdeflate"}) then
+        for _, flag in ipairs((tools.pkgconfig_query({"--libs-only-L", "libdeflate"}) or ""):split("%s+")) do
             table.insert(linkdirs, flag:sub(3))
         end
         table.insert(links, "deflate")
@@ -75,7 +47,7 @@ function configure(target)
     if target:is_plat("macosx") then
         -- libunistring has no .pc file; brew links everything into its prefix
         for _, formula in ipairs({"", "libunistring", "libdeflate", "ncurses"}) do
-            local prefix = brew_prefix(formula ~= "" and formula or nil)
+            local prefix = tools.brew_prefix(formula ~= "" and formula or nil)
             if prefix then
                 table.insert(linkdirs, path.join(prefix, "lib"))
             end
