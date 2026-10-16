@@ -14,6 +14,21 @@ rule("preflight")
     end)
 rule_end()
 
+-- `xmake fonts` downloads the standard FIGlet fonts into fonts/ so that the
+-- examples in the README work. Implementation in xmake/fonts.lua.
+task("fonts")
+    set_category("action")
+    set_menu {
+        usage = "xmake fonts",
+        description = "Download the standard FIGlet fonts into fonts/",
+        options = {},
+    }
+    on_run(function ()
+        import("fonts", {rootdir = path.join(os.projectdir(), "xmake")})
+        fonts.fetch()
+    end)
+task_end()
+
 target("ncfig")
     set_kind("binary")
     set_languages("cxx20")
