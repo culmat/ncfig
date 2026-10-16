@@ -24,6 +24,7 @@ function fetch()
         cprint("updating %s", clonedir)
         git.pull({repodir = clonedir})
     else
+        os.tryrm(clonedir)   -- leftovers of an interrupted clone
         cprint("cloning %s", url)
         git.clone(url, {depth = 1, outputdir = clonedir})
     end

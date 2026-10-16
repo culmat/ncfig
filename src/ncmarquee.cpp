@@ -20,7 +20,8 @@ import nctui.tweening;
 auto help = "Usage: ncmarquee -f <font> [-v <gradient>] [-h <gradient>] [-r <gradient>]\n"
             "                           [-s <ms>] [-t] [-c] [-w <amplitude>] [text]\n"
             "\n"
-            "  -f <font>      : Specify the font file to use\n"
+            "  -f <font>      : Font file (.flf), or the name of a font in $NCFIG_FONTDIR\n"
+            "                   or in the fonts directory shipped with ncfig\n"
             "  -v <gradient>  : Specify the vertical color gradient\n"
             "  -h <gradient>  : Specify the horizontal color gradient\n"
             "  -r <gradient>  : Specify the radial color gradient\n"
@@ -117,6 +118,30 @@ int main(int argc, char** argv)
         return EXIT_FAILURE;
     }
 
+    std::string fontfile = FigletFont::findFont(filename);
+
+    if (fontfile.empty()) {
+        std::cerr << "Font not found: " << filename << "\n";
+
+        if (FigletFont::isFontName(filename)) {
+            std::cerr << "Font directories searched for names:\n";
+
+            for (const auto& dir : FigletFont::fontDirs()) {
+                std::cerr << "  " << dir.string() << "\n";
+            }
+        }
+
+        return EXIT_FAILURE;
+    }
+
+    FigletFont font;
+
+    if (!font.loadFromFile(fontfile)) {
+        std::cerr << "Failed to parse font file " << fontfile << ".\n";
+
+        return EXIT_FAILURE;
+    }
+
     // Initialize NotCurses in full-screen mode (not CLI mode)
     notcurses_options nc_opts{
         .flags = NCOPTION_SUPPRESS_BANNERS
@@ -127,14 +152,6 @@ int main(int argc, char** argv)
     // Get the standard plane dimensions
     int screen_width = std_plane->get_dim_x();
     int screen_height = std_plane->get_dim_y();
-
-    FigletFont font;
-
-    if (!font.loadFromFile(filename)) {
-        std::cerr << "Failed to parse font file.\n";
-
-        return EXIT_FAILURE;
-    }
 
     // Get the dimensions of the rendered text
     auto[text_width, text_height] = font.getTextDimensions(text);
@@ -261,6 +278,7 @@ int main(int argc, char** argv)
         }
 
         wave_phase += wave_step;
+
         if (wave_phase >= wave_period) {
             wave_phase -= wave_period;
         }
