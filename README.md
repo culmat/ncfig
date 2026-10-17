@@ -128,6 +128,16 @@ xmake build ncfig
 xmake build ncmarquee
 ```
 
+### Build only the core library (zero external dependencies):
+
+```sh
+xmake build figlet-core
+```
+
+This compiles `libfiglet-core.a` with `FigletFont`, `TextCanvas`, and `Tweening`
+without requiring Notcurses. You can integrate this target into other projects
+using `includes(...)` and `add_deps("figlet-core")`.
+
 ### Debug builds:
 
 ```sh
