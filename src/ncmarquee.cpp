@@ -161,15 +161,19 @@ int main(int argc, char** argv)
     constexpr float wave_period = 2.0f * static_cast<float>(M_PI);
     float wave_phase = 0.0f;
 
+    // In-memory frame buffer independent of Notcurses
+    TextCanvas canvas(screen_width, screen_height);
+
     while (running) {
-        // Clear the standard plane
+        // Clear canvas and Notcurses plane
+        canvas.clear({' ', 0});
         std_plane->erase();
 
         if (circular_mode) {
             // In circular mode, x_pos is where the first instance's x=0 is rendered
             // Render that instance
             font.renderToViewport(
-                std_plane,
+                canvas,
                 y_pos,
                 x_pos,
                 text,
@@ -185,7 +189,7 @@ int main(int argc, char** argv)
             // Render additional instances to the right if they fit within viewport
             for (int offset = x_pos + text_width; offset < screen_width; offset += text_width) {
                 font.renderToViewport(
-                    std_plane,
+                    canvas,
                     y_pos,
                     offset,
                     text,
@@ -202,7 +206,7 @@ int main(int argc, char** argv)
         } else {
             // Normal mode: render once
             font.renderToViewport(
-                std_plane,
+                canvas,
                 y_pos,
                 x_pos,
                 text,
@@ -214,6 +218,17 @@ int main(int argc, char** argv)
                 wave_amplitude,
                 wave_phase
             );
+        }
+
+        // Blit TextCanvas to Notcurses plane
+        for (int y = 0; y < canvas.height(); ++y) {
+            for (int x = 0; x < canvas.width(); ++x) {
+                const auto& cell = canvas(y, x);
+                if (cell.ch != ' ') {
+                    std_plane->set_fg_rgb(cell.fg);
+                    std_plane->putc(y, x, cell.ch);
+                }
+            }
         }
 
         // Render the frame

@@ -138,5 +138,139 @@ In this case, the executables are in `build/linux/x86_64/debug/`.
 
 ### Dependencies
 
-- [Notcurses](https://github.com/dankamongmen/notcurses) (`notcurses++`) — discoverable via `pkg-config`
 - GCC 16 or Clang 21 - I couldn't get Clang 22 to compile this.
+- [Notcurses](https://github.com/dankamongmen/notcurses) (`notcurses++`) — discoverable via `pkg-config` (required only for the `ncfig` and `ncmarquee` demo tools).
+
+## Using the Core with Other Renderers
+
+The core FIGlet engine (`FigletFont`, `Tweening`, and `TextCanvas`) is
+completely independent of Notcurses or any specific rendering library.
+It has zero external dependencies and only requires the C++20 standard
+library.
+
+The core renders into a generic `TextCanvas`, which is an in-memory 2D buffer of `Cell` structures:
+
+```cpp
+struct Cell {
+    char ch = ' ';
+    uint32_t fg = 0xFFFFFF; // 0x00RRGGBB format
+
+    uint8_t r() const noexcept;
+    uint8_t g() const noexcept;
+    uint8_t b() const noexcept;
+};
+```
+
+### 1. Rendering Text to `TextCanvas`
+
+```cpp
+import nctui.figlet;
+import nctui.tweening;
+
+FigletFont font;
+font.loadFromFile("fonts/banner.flf");
+
+// Define an optional color gradient
+Tweening::Gradient grad{
+    .type = Tweening::GradientType::Linear,
+    .orientation = Tweening::Orientation::Horizontal,
+    .start = 0xff0000,
+    .end = 0x0000ff
+};
+
+// Render directly into a newly created canvas sized to fit the text:
+TextCanvas canvas = font.render("HELLO", grad);
+```
+
+### 2. Using with STC (`simple_term_colors`)
+
+[STC](https://github.com/illyigan/simple_term_colors) allows streaming ANSI
+escape sequences directly to `std::cout` without requiring any curses
+library or TTY initialization:
+
+```cpp
+#include "stc.hpp"
+import nctui.figlet;
+
+void printWithSTC(const TextCanvas& canvas)
+{
+    std::cout << stc::true_color;
+    for (int y = 0; y < canvas.height(); ++y) {
+        for (int x = 0; x < canvas.width(); ++x) {
+            const auto& cell = canvas(y, x);
+            std::cout << stc::rgb_fg(cell.r(), cell.g(), cell.b()) << cell.ch;
+        }
+        std::cout << stc::reset << '\n';
+    }
+}
+```
+
+### 3. Using with ncurses (`WINDOW*`)
+
+With classic `ncurses`, map the RGB color to an ncurses color pair and write cells using `mvwaddch`:
+
+```cpp
+#include <ncurses.h>
+import nctui.figlet;
+
+void blitToNcurses(WINDOW* win, const TextCanvas& canvas, int start_y = 0, int start_x = 0)
+{
+    for (int y = 0; y < canvas.height(); ++y) {
+        for (int x = 0; x < canvas.width(); ++x) {
+            const auto& cell = canvas(y, x);
+            int pair = mapRgbToPair(cell.fg); // Custom mapping to closest init_pair
+            wattron(win, COLOR_PAIR(pair));
+            mvwaddch(win, start_y + y, start_x + x, cell.ch);
+            wattroff(win, COLOR_PAIR(pair));
+        }
+    }
+    wrefresh(win);
+}
+```
+
+### 4. Using with Notcurses (as in `ncfig`)
+
+Blit the `TextCanvas` cells directly to an `ncpp::Plane`:
+
+```cpp
+#include <ncpp/Plane.hh>
+import nctui.figlet;
+
+void blitToPlane(ncpp::Plane* plane, const TextCanvas& canvas, int start_y = 0, int start_x = 0)
+{
+    for (int y = 0; y < canvas.height(); ++y) {
+        for (int x = 0; x < canvas.width(); ++x) {
+            const auto& cell = canvas(y, x);
+            plane->set_fg_rgb(cell.fg);
+            plane->putc(start_y + y, start_x + x, cell.ch);
+        }
+    }
+}
+```
+
+### 5. Viewport / Marquee Animations
+
+For scrolling or sine wave marquee animations, use `renderToViewport` to
+render each frame into a viewport-sized `TextCanvas`:
+
+```cpp
+TextCanvas canvas(screen_width, screen_height);
+canvas.clear({' ', 0});
+
+font.renderToViewport(
+    canvas,
+    y_pos,
+    x_pos,
+    text,
+    first_gradient,
+    second_gradient,
+    screen_width,
+    x_pos,               // offset for scrolling
+    gradient_to_text,    // true: text space; false: screen space
+    wave_amplitude,      // 0 for no wave
+    wave_phase           // advancing angle for sine animation
+);
+
+// Then blit canvas to your target display (Notcurses, STC, ncurses, SDL, etc.)
+```
+

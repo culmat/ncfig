@@ -1,8 +1,8 @@
 module;
 
-#include <ncpp/Plane.hh>
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -13,6 +13,7 @@ module;
 
 export module nctui.figlet;
 
+export import nctui.canvas;
 import nctui.tweening;
 
 export class FigletFont
@@ -177,9 +178,9 @@ public:
     }
 
     /**
-     * @brief Renders text onto an ncpp::Plane using a horizontal full-width alignment.
+     * @brief Renders text onto a TextCanvas at the specified (y, x) coordinates.
      *
-     * @param plane The target Notcurses C++ plane.
+     * @param canvas The target TextCanvas.
      * @param y Top-left Y row coordinate.
      * @param x Top-left X column coordinate.
      * @param text String view containing UTF-8 input text.
@@ -187,7 +188,7 @@ public:
      * @param second Second gradient for the text.
      */
     void render(
-        ncpp::Plane* plane,
+        TextCanvas& canvas,
         int y,
         int x,
         std::string_view text,
@@ -212,99 +213,78 @@ public:
                 // 2d tweening
                 // print by character
                 for (int j = 0; j < lines[i].size(); ++j) {
-                    plane->set_fg_rgb(two_d[i][j]);
-                    plane->putc(y + i, x + j, lines[i][j]);
+                    canvas.set(y + i, x + j, lines[i][j], two_d[i][j]);
                 }
             } else if (!one_d.empty() && first.orientation == Tweening::Orientation::Vertical) {
-                plane->set_fg_rgb(one_d[i]);
-                // Write strings directly onto the target plane coordinates
-                plane->putstr(y + i, x, lines[i].c_str());
+                for (int j = 0; j < lines[i].size(); ++j) {
+                    canvas.set(y + i, x + j, lines[i][j], one_d[i]);
+                }
             } else if (!one_d.empty() && first.orientation == Tweening::Orientation::Horizontal) {
                 // print by character
                 for (int j = 0; j < lines[i].size(); ++j) {
-                    plane->set_fg_rgb(one_d[j]);
-                    plane->putc(y + i, x + j, lines[i][j]);
+                    canvas.set(y + i, x + j, lines[i][j], one_d[j]);
                 }
             } else {
-                plane->putstr(y + i, x, lines[i].c_str());
+                for (int j = 0; j < lines[i].size(); ++j) {
+                    canvas.set(y + i, x + j, lines[i][j], 0xFFFFFF);
+                }
             }
         }
     }
 
     /**
-     * @brief Renders text onto an ncpp::Plane using a horizontal full-width alignment.
+     * @brief Renders text into a newly created TextCanvas sized exactly to fit the text.
      *
-     * @param plane The target Notcurses C++ plane.
      * @param text String view containing UTF-8 input text.
      * @param first First gradient for the text.
      * @param second Second gradient for the text.
+     * @return A TextCanvas containing the rendered text and colors.
      */
-    void render(
-        ncpp::Plane* plane,
+    TextCanvas render(
         std::string_view text,
         Tweening::Gradient first = {},
         Tweening::Gradient second = {}
     ) const
     {
         if (height <= 0) {
-            return;
+            return {};
         }
 
-        auto lines = renderToStrings(text, true);
-        auto[
-            one_d,
-            two_d,
-            max_width
-        ] = prepareGradients(lines, first, second);
+        updateTextCache(text);
+        const auto& lines = text_cache_lines;
+        int text_width = text_cache_width;
+        int text_height = static_cast<int>(lines.size());
 
-        for (int i = 0; i < lines.size(); ++i) {
-            if (!two_d.empty()) {
-                // 2d tweening
-                // print by character
-                for (int j = 0; j < lines[i].size(); ++j) {
-                    plane->set_fg_rgb(two_d[i][j]);
-                    plane->putc(lines[i][j]);
-                }
-            } else if (!one_d.empty() && first.orientation == Tweening::Orientation::Vertical) {
-                plane->set_fg_rgb(one_d[i]);
-                plane->putstr(lines[i].c_str());
-            } else if (!one_d.empty() && first.orientation == Tweening::Orientation::Horizontal) {
-                // print by character
-                for (int j = 0; j < lines[i].size(); ++j) {
-                    plane->set_fg_rgb(one_d[j]);
-                    plane->putc(lines[i][j]);
-                }
-            } else {
-                plane->putstr(lines[i].c_str());
-            }
-        }
+        TextCanvas canvas(text_width, text_height);
+        render(canvas, 0, 0, text, first, second);
+        return canvas;
     }
 
     /**
-     * @brief Renders a portion of text onto a plane with gradients applied to viewport or text dimensions.
+     * @brief Renders a portion of text onto a TextCanvas with gradients applied to viewport or text dimensions.
      *
      * This is useful for marquee-style rendering where text scrolls across a fixed viewport.
      *
-     * @param plane The target Notcurses C++ plane.
+     * @param canvas The target TextCanvas.
      * @param y Top-left Y row coordinate.
-     * @param x Top-left X column coordinate (starting position on plane).
+     * @param x Top-left X column coordinate (starting position on canvas).
      * @param text String view containing UTF-8 input text.
      * @param first First gradient for the text.
      * @param second Second gradient for the text.
-     * @param viewport_width Width of the viewport.
+     * @param viewport_width Width of the viewport (defaults to canvas.width() if <= 0).
      * @param offset Horizontal offset into the text (for scrolling).
      * @param use_text_dimensions If true, use text dimensions for gradients; otherwise use viewport width x text height.
      * @param wave_amplitude Amplitude of the wave effect (default 0).
      * @param wave_phase Phase of the wave effect (default 0.0f).
      */
     void renderToViewport(
-        ncpp::Plane* plane,
+        TextCanvas& canvas,
         int y,
         int x,
         std::string_view text,
         Tweening::Gradient& first,
         Tweening::Gradient& second,
-        int viewport_width,
+        int viewport_width = 0,
         int offset = 0,
         bool use_text_dimensions = false,
         int wave_amplitude = 0,
@@ -320,6 +300,10 @@ public:
 
         if (lines.empty()) {
             return;
+        }
+
+        if (viewport_width <= 0) {
+            viewport_width = canvas.width();
         }
 
         int text_height = static_cast<int>(lines.size());
@@ -350,7 +334,7 @@ public:
 
         auto[one_d, two_d, max_width] = prepareGradients(lines, first, second);
 
-        int plane_height = plane->get_dim_y();
+        int canvas_height = canvas.height();
 
         // Map every text column → its character's center x (in text coordinates).
         // Snapping per-column y to the character center keeps each glyph internally
@@ -389,7 +373,7 @@ public:
                 y_off = static_cast<int>(std::round(wave_amplitude * std::sin(phase)));
             }
 
-            int col_y = std::clamp(y + y_off, 0, std::max(0, plane_height - text_height));
+            int col_y = std::clamp(y + y_off, 0, std::max(0, canvas_height - text_height));
             int color_x = use_text_dimensions ? text_x : screen_j;
 
             for (int i = 0; i < text_height; ++i) {
@@ -397,7 +381,7 @@ public:
                     break;
                 }
 
-                if (col_y + i >= plane_height) {
+                if (col_y + i >= canvas_height) {
                     continue;
                 }
 
@@ -417,8 +401,7 @@ public:
                     color = one_d[color_x];
                 }
 
-                plane->set_fg_rgb(color);
-                plane->putc(col_y + i, screen_j, lines[i][text_x]);
+                canvas.set(col_y + i, screen_j, lines[i][text_x], color);
             }
         }
     }

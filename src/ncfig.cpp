@@ -76,9 +76,18 @@ int main(int argc, char** argv)
         return EXIT_FAILURE;
     }
 
-    // Render using the current cursor position
+    // Render text to generic TextCanvas, then blit to Notcurses plane
+    TextCanvas canvas = font.render(text, first, second);
+
     std_plane->putstr("\n");
-    font.render(std_plane, text, first, second);
+    for (int y = 0; y < canvas.height(); ++y) {
+        for (int x = 0; x < canvas.width(); ++x) {
+            const auto& cell = canvas(y, x);
+            std_plane->set_fg_rgb(cell.fg);
+            std_plane->putc(cell.ch);
+        }
+        std_plane->putstr("\n");
+    }
     nc.render();
 
     return EXIT_SUCCESS;
