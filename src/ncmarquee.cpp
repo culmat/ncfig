@@ -147,6 +147,24 @@ int main(int argc, char** argv)
         .flags = NCOPTION_SUPPRESS_BANNERS
     };
     auto nc = ncpp::NotCurses(nc_opts);
+
+    // Discard any input already queued at startup, such as a terminal query
+    // response left over from a previous notcurses session sharing this
+    // terminal (e.g. running ncmarquee twice in a row): otherwise the very
+    // first non-blocking get() below in the animation loop would mistake
+    // those stale bytes for an immediate keypress and exit right away.
+    // A response that is still in flight when we drain won't be caught by
+    // the first pass, hence the short wait and second pass.
+    ncinput stale_input{};
+
+    while (nc.get(false, &stale_input) != 0) {
+    }
+
+    std::this_thread::sleep_for(50ms);
+
+    while (nc.get(false, &stale_input) != 0) {
+    }
+
     ncpp::Plane* std_plane = nc.get_stdplane();
 
     // Get the standard plane dimensions
