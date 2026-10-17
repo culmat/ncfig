@@ -16,30 +16,30 @@ repo="${NCFIG_REPO:-jaydg/ncfig}"   # override to use another fork's releases
 prefix="${PREFIX:-$HOME/.local}"
 version="${VERSION:-latest}"
 
-case "$(uname -m)" in
-    x86_64|amd64)  arch="x86_64" ;;
-    arm64|aarch64) arch="aarch64" ;;
-    *) echo "Unsupported CPU architecture: $(uname -m)" >&2; exit 2 ;;
+script_dir=""
+case "$0" in
+    */*) [ -f "$0" ] && script_dir="$(cd "$(dirname "$0")" && pwd)" ;;
 esac
-case "$(uname -s)" in
-    Linux)  os="linux" ;;
-    Darwin) os="macos" ;;
-    *) echo "Unsupported operating system: $(uname -s)" >&2; exit 2 ;;
-esac
-
-asset="ncfig-$arch-$os.tar.gz"
-if [ "$version" = "latest" ]; then
-    url="https://github.com/$repo/releases/latest/download/$asset"
+if [ -n "$script_dir" ] && [ -f "$script_dir/lib.sh" ]; then
+    # shellcheck source=lib.sh
+    source "$script_dir/lib.sh"
 else
-    url="https://github.com/$repo/releases/download/$version/$asset"
+    lib_tmp="$(mktemp)"
+    if ! curl -fsSL "https://raw.githubusercontent.com/$repo/main/scripts/lib.sh" -o "$lib_tmp"; then
+        rm -f "$lib_tmp"
+        echo "Failed to fetch scripts/lib.sh from $repo" >&2
+        exit 1
+    fi
+    # shellcheck disable=SC1090
+    source "$lib_tmp"
+    rm -f "$lib_tmp"
 fi
+ncfig_detect_platform
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
-echo "Downloading $url ..."
-if ! curl -fsSL "$url" | tar -C "$tmp" -xz; then
-    echo "Download failed. Is there a release for $arch-$os at https://github.com/$repo/releases ?" >&2
+if ! ncfig_fetch_release "$repo" "$version" "$tmp"; then
     exit 1
 fi
 

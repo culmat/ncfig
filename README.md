@@ -16,6 +16,8 @@ bash <(curl -L https://raw.githubusercontent.com/jaydg/ncfig/main/scripts/launch
 
 The same command runs the tools with your own arguments, e.g. `... launch.sh) ncfig -f slant -v 0xff0000:0x0000ff "Hello"`.
 
+Built it yourself already (see [Building](#building))? `scripts/demo.sh` plays the same demo using your local build in `build/` and the fonts in `fonts/`, with no download needed; without a local build it falls back to downloading a release, same as `launch.sh`. `scripts/download.sh` alone just fetches and caches the release binaries (printing the directory they end up in), which `launch.sh` and `demo.sh` use internally; set `VERSION=v0.1.0` to pin a specific release instead of the latest one.
+
 **Install with a script** into `~/.local/bin` (set `PREFIX` for another location):
 
 ```sh
