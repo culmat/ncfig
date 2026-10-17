@@ -9,6 +9,7 @@
 
 import("lib.detect.find_tool")
 import("core.project.config")
+import("core.project.project")
 import("tools")
 
 local hints = {
@@ -299,16 +300,63 @@ local function check_gcc(target)
     return lines
 end
 
--- raises a build error listing every problem found for `target`
-function check(target)
-    local gcc_problem = check_gcc(target)
-    if gcc_problem then
-        raise("target(%s): unsupported compiler\n    %s", target:name(), table.concat(gcc_problem, "\n    "))
+-- how to treat problems that concern only `target` (its compiler support and
+-- its packages) in this run of xmake:
+--   "warn"  on an explicit `xmake f`, so that the configuration is saved; the
+--           next build configures again and reports them as errors
+--   "skip"  when the command line names other targets that don't depend on
+--           `target` (e.g. `xmake build figlet-core`)
+--   "raise" otherwise
+-- The configure step runs as a nested task with options of its own, so the
+-- targets named on the command line are only visible in xmake.argv().
+local function severity(target)
+    local argv = table.wrap(xmake.argv())
+    if argv[1] == "f" or argv[1] == "config" then
+        return "warn"
     end
+    local named = false
+    for _, arg in ipairs(argv) do
+        local other = not arg:startswith("-") and project.target(arg)
+        if other then
+            named = true
+            if other:name() == target:name() then
+                return "raise"
+            end
+            for _, dep in ipairs(other:orderdeps()) do
+                if dep:name() == target:name() then
+                    return "raise"
+                end
+            end
+        end
+    end
+    return named and "skip" or "raise"
+end
 
+-- raises a build error listing every problem found for `target`, or a warning
+-- (see severity above)
+function check(target)
+    -- a mismatched module scanner breaks every target, so it is always an error
     local scanner_problem = check_module_scanner(target)
     if scanner_problem then
         raise("target(%s): toolchain mismatch\n    %s", target:name(), table.concat(scanner_problem, "\n    "))
+    end
+
+    local how = severity(target)
+    if how == "skip" then
+        return
+    end
+    local report = function (fmt, ...)
+        if how == "warn" then
+            utils.warning(fmt, ...)
+        else
+            raise(fmt, ...)
+        end
+    end
+
+    local gcc_problem = check_gcc(target)
+    if gcc_problem then
+        report("target(%s): unsupported compiler\n    %s", target:name(), table.concat(gcc_problem, "\n    "))
+        return
     end
 
     local missing = {}
@@ -322,12 +370,12 @@ function check(target)
         return
     end
 
-    local report = {}
+    local lines = {}
     for _, name in ipairs(missing) do
-        table.insert(report, "  " .. name)
+        table.insert(lines, "  " .. name)
         for _, line in ipairs(diagnose(name)) do
-            table.insert(report, "    " .. line)
+            table.insert(lines, "    " .. line)
         end
     end
-    raise("target(%s): missing dependencies\n%s", target:name(), table.concat(report, "\n"))
+    report("target(%s): missing dependencies\n%s", target:name(), table.concat(lines, "\n"))
 end

@@ -161,7 +161,7 @@ brew install notcurses llvm
 xmake f --toolchain=llvm --sdk=$(brew --prefix llvm)
 ```
 
-If something is missing or mismatched, `xmake` stops before compiling, explains the cause and proposes a fix.
+If something is missing or mismatched, `xmake` stops before compiling, explains the cause and proposes a fix. `xmake f` only warns about what the tools need and still saves the configuration, and `xmake build figlet-core` ignores it.
 
 ### Build all tools:
 
