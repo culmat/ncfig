@@ -24,10 +24,11 @@ esac
 bin_dir="${NCFIG_BIN_DIR:-}"
 if [ -z "$bin_dir" ] && [ -n "$script_dir" ] && [ -f "$script_dir/../xmake.lua" ]; then
     repo_root="$(cd "$script_dir/.." && pwd)"
-    ncfig_bin="$(find "$repo_root/build" -type f -name ncfig -perm -u+x 2>/dev/null | head -1 || true)"
-    ncmarquee_bin="$(find "$repo_root/build" -type f -name ncmarquee -perm -u+x 2>/dev/null | head -1 || true)"
-    if [ -n "$ncfig_bin" ] && [ -n "$ncmarquee_bin" ] && ls "$repo_root"/fonts/*.flf >/dev/null 2>&1; then
-        bin_dir="$(dirname "$ncfig_bin")"
+    # the most recently built one, e.g. a fresh `xmake` rather than an older build/release
+    ncmarquee_bin="$(find "$repo_root/build" -type f -name ncmarquee -perm -u+x -print0 2>/dev/null \
+        | xargs -0 ls -t 2>/dev/null | head -1 || true)"
+    if [ -n "$ncmarquee_bin" ] && ls "$repo_root"/fonts/*.flf >/dev/null 2>&1; then
+        bin_dir="$(dirname "$ncmarquee_bin")"
         export NCFIG_FONTDIR="${NCFIG_FONTDIR:-$repo_root/fonts}"
         echo "Using the local build in $bin_dir" >&2
     fi
